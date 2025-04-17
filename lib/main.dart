@@ -88,10 +88,10 @@ class _MainScreenState extends State<MainScreen> {
   // Список экранов, которые будут отображаться при переключении вкладок
   static const List<Widget> _screens = <Widget>[
     TaskListScreen(), // Экран списка задач
+    EisenhowerScreen(), // Экран Матрицы Эйзенхауэра
     CalendarScreen(), // Экран календаря
     ContactsScreen(), // Экран контактов
     SettingsScreen(), // Экран настроек
-    EisenhowerScreen(), // Экран Матрицы Эйзенхауэра
   ];
 
   // Функция для переключения между вкладками
