@@ -10,8 +10,8 @@ import 'screens/notes_screen.dart'; // Экран заметок
 import 'screens/countdowns_screen.dart'; // Экран обратных отсчётов
 import 'screens/account_screen.dart'; // Экран аккаунта
 import 'screens/store_screen.dart'; // Экран магазина
-import 'screens/create_screen.dart'; // Экран "Создать"
 import 'screens/tags_screen.dart'; // Экран управления метками
+import 'screens/create_task_screen.dart'; // Экран создания задачи
 
 void main() {
   runApp(const MyApp()); // Запускаем приложение
@@ -75,8 +75,125 @@ class MyApp extends StatelessWidget {
         useMaterial3: true, // Оставляем Material Design 3
       ),
       themeMode: ThemeMode.system, // Автоматическое переключение темы
-      home:
-          const CreateScreen(), // Устанавливаем CreateScreen как начальный экран
+      home: const MainScreen(), // Устанавливаем MainScreen как начальный экран
+    );
+  }
+}
+
+// Виджет для быстрого создания
+class CreateWidget extends StatelessWidget {
+  const CreateWidget({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Заголовок
+            Text('Создать', style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 16),
+            // Поисковая строка
+            TextField(
+              decoration: InputDecoration(
+                hintText: 'Новая заметка, задача или что-то ещё...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SearchScreen()),
+                );
+              },
+            ),
+            const SizedBox(height: 24),
+            // Кнопки для создания
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Кнопка "Новая заметка" (зелёная)
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const NotesScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.note),
+                    label: const Text('Новая заметка'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2ECC71), // Зелёный
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Кнопка "Новая задача" (фиолетовая)
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const CreateTaskScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.check_box),
+                    label: const Text('Новая задача'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF9B59B6), // Фиолетовый
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Кнопка "Новый обратный отсчёт"
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CountdownsScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.timer),
+              label: const Text('Новый обратный отсчёт'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).primaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                minimumSize: const Size(
+                  double.infinity,
+                  0,
+                ), // Ширина на весь экран
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -94,11 +211,11 @@ class _MainScreenState extends State<MainScreen> {
 
   // Список основных экранов для навигационной панели
   static const List<Widget> _mainScreens = <Widget>[
+    CreateWidget(), // Экран быстрого создания
     TaskListScreen(), // Экран списка задач ("Быстрый доступ")
     CalendarScreen(), // Экран календаря
     EisenhowerScreen(), // Экран Матрицы Эйзенхауэра
-    SettingsScreen(), // Экран настроек
-    // Пятый экран ("Ещё") будет обрабатываться отдельно
+    // "Настройки" убраны, теперь они в "Ещё"
   ];
 
   // Список дополнительных экранов для "Ещё"
@@ -114,11 +231,12 @@ class _MainScreenState extends State<MainScreen> {
     {'title': 'Контакты', 'screen': ContactsScreen(), 'icon': Icons.contacts},
     {'title': 'Аккаунт', 'screen': AccountScreen(), 'icon': Icons.person},
     {'title': 'Магазин', 'screen': StoreScreen(), 'icon': Icons.store},
+    {'title': 'Метки', 'screen': TagsScreen(), 'icon': Icons.tag},
     {
-      'title': 'Метки',
-      'screen': TagsScreen(),
-      'icon': Icons.tag,
-    }, // Добавляем экран меток
+      'title': 'Настройки',
+      'screen': SettingsScreen(),
+      'icon': Icons.settings,
+    }, // Перенесли сюда
   ];
 
   // Функция для переключения между вкладками
@@ -189,16 +307,13 @@ class _MainScreenState extends State<MainScreen> {
       ),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(icon: Icon(Icons.add), label: 'Создать'),
           BottomNavigationBarItem(icon: Icon(Icons.list), label: 'Задачи'),
           BottomNavigationBarItem(
             icon: Icon(Icons.calendar_today),
             label: 'Календарь',
           ),
           BottomNavigationBarItem(icon: Icon(Icons.grid_on), label: 'Матрица'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Настройки',
-          ),
           BottomNavigationBarItem(icon: Icon(Icons.more_horiz), label: 'Ещё'),
         ],
         currentIndex: _selectedIndex,
