@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
-import 'screens/task_list_screen.dart'; // Импортируем экран списка задач
-import 'screens/calendar_screen.dart'; // Импортируем экран календаря
-import 'screens/contacts_screen.dart'; // Импортируем экран контактов
-import 'screens/settings_screen.dart'; // Импортируем экран настроек
+import 'screens/task_list_screen.dart'; // Экран списка задач ("Быстрый доступ")
+import 'screens/calendar_screen.dart'; // Экран календаря
 import 'screens/eisenhower_screen.dart'; // Экран Матрицы Эйзенхауэра
+import 'screens/contacts_screen.dart'; // Экран контактов
+import 'screens/settings_screen.dart'; // Экран настроек
+import 'screens/search_screen.dart'; // Экран поиска
+import 'screens/notebooks_screen.dart'; // Экран блокнотов
+import 'screens/notes_screen.dart'; // Экран заметок
+import 'screens/countdowns_screen.dart'; // Экран обратных отсчётов
+import 'screens/account_screen.dart'; // Экран аккаунта
+import 'screens/store_screen.dart'; // Экран магазина
+import 'screens/create_screen.dart'; // Экран "Создать"
+import 'screens/tags_screen.dart'; // Экран управления метками
 
 void main() {
   runApp(const MyApp()); // Запускаем приложение
@@ -64,12 +72,11 @@ class MyApp extends StatelessWidget {
             ),
           ),
         ),
-        useMaterial3:
-            true, // Используем Material Design 3 для современного стиля
+        useMaterial3: true, // Оставляем Material Design 3
       ),
-      themeMode:
-          ThemeMode.system, // Автоматическое переключение темы (светлая/тёмная)
-      home: const MainScreen(), // Устанавливаем главный экран
+      themeMode: ThemeMode.system, // Автоматическое переключение темы
+      home:
+          const CreateScreen(), // Устанавливаем CreateScreen как начальный экран
     );
   }
 }
@@ -85,68 +92,120 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0; // Переменная для хранения индекса выбранной вкладки
 
-  // Список экранов, которые будут отображаться при переключении вкладок
-  static const List<Widget> _screens = <Widget>[
-    TaskListScreen(), // Экран списка задач
-    EisenhowerScreen(), // Экран Матрицы Эйзенхауэра
+  // Список основных экранов для навигационной панели
+  static const List<Widget> _mainScreens = <Widget>[
+    TaskListScreen(), // Экран списка задач ("Быстрый доступ")
     CalendarScreen(), // Экран календаря
-    ContactsScreen(), // Экран контактов
+    EisenhowerScreen(), // Экран Матрицы Эйзенхауэра
     SettingsScreen(), // Экран настроек
+    // Пятый экран ("Ещё") будет обрабатываться отдельно
+  ];
+
+  // Список дополнительных экранов для "Ещё"
+  static const List<Map<String, dynamic>> _moreScreens = [
+    {'title': 'Поиск', 'screen': SearchScreen(), 'icon': Icons.search},
+    {'title': 'Блокноты', 'screen': NotebooksScreen(), 'icon': Icons.book},
+    {'title': 'Заметки', 'screen': NotesScreen(), 'icon': Icons.note},
+    {
+      'title': 'Обратные отсчёты',
+      'screen': CountdownsScreen(),
+      'icon': Icons.timer,
+    },
+    {'title': 'Контакты', 'screen': ContactsScreen(), 'icon': Icons.contacts},
+    {'title': 'Аккаунт', 'screen': AccountScreen(), 'icon': Icons.person},
+    {'title': 'Магазин', 'screen': StoreScreen(), 'icon': Icons.store},
+    {
+      'title': 'Метки',
+      'screen': TagsScreen(),
+      'icon': Icons.tag,
+    }, // Добавляем экран меток
   ];
 
   // Функция для переключения между вкладками
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index; // Обновляем индекс выбранной вкладки
-    });
+    if (index == 4) {
+      // Если выбрана вкладка "Ещё", показываем выпадающий список
+      _showMoreMenu(context);
+    } else {
+      setState(() {
+        _selectedIndex = index; // Обновляем индекс выбранной вкладки
+      });
+    }
+  }
+
+  // Функция для показа выпадающего списка "Ещё"
+  void _showMoreMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor:
+          Theme.of(context).brightness == Brightness.light
+              ? Colors.white
+              : Colors.grey[900],
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          itemCount: _moreScreens.length,
+          itemBuilder: (context, index) {
+            final screen = _moreScreens[index];
+            return ListTile(
+              leading: Icon(
+                screen['icon'],
+                color: Theme.of(context).primaryColor,
+              ),
+              title: Text(
+                screen['title'],
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              onTap: () {
+                Navigator.pop(context); // Закрываем меню
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => screen['screen']),
+                ); // Переходим на выбранный экран
+              },
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final primaryColor = Theme.of(context).primaryColor;
+
     return Scaffold(
       body: AnimatedSwitcher(
-        duration: const Duration(
-          milliseconds: 300,
-        ), // Анимация переключения (300ms)
+        duration: const Duration(milliseconds: 300), // Анимация переключения
         transitionBuilder: (Widget child, Animation<double> animation) {
           return FadeTransition(opacity: animation, child: child);
         },
-        child: _screens.elementAt(_selectedIndex), // Отображаем текущий экран
-      ), // Отображаем экран, соответствующий текущему индексу
+        child: _mainScreens.elementAt(
+          _selectedIndex,
+        ), // Отображаем текущий экран
+      ),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(icon: Icon(Icons.list), label: 'Задачи'),
           BottomNavigationBarItem(
-            icon: Icon(Icons.list), // Иконка для вкладки "Задачи"
-            label: 'Задачи', // Название вкладки
+            icon: Icon(Icons.calendar_today),
+            label: 'Календарь',
           ),
+          BottomNavigationBarItem(icon: Icon(Icons.grid_on), label: 'Матрица'),
           BottomNavigationBarItem(
-            icon: Icon(Icons.grid_on), // Иконка для вкладки "Матрица"
-            label: 'Матрица',
+            icon: Icon(Icons.settings),
+            label: 'Настройки',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_today), // Иконка для вкладки "Календарь"
-            label: 'Календарь', // Название вкладки
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.contacts), // Иконка для вкладки "Контакты"
-            label: 'Контакты', // Название вкладки
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings), // Иконка для вкладки "Настройки"
-            label: 'Настройки', // Название вкладки
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.more_horiz), label: 'Ещё'),
         ],
-        currentIndex: _selectedIndex, // Текущая активная вкладка
-        selectedItemColor:
-            Theme.of(
-              context,
-            ).primaryColor, // Цвет активной вкладки (берётся из темы)
-        unselectedItemColor: Colors.grey, // Цвет неактивных вкладок
-        type:
-            BottomNavigationBarType
-                .fixed, // Фиксированный стиль навигационной панели
-        onTap:
-            _onItemTapped, // Вызываем функцию переключения вкладок при нажатии
+        currentIndex: _selectedIndex,
+        selectedItemColor: primaryColor,
+        unselectedItemColor: Colors.grey,
+        type: BottomNavigationBarType.fixed,
+        onTap: _onItemTapped,
       ),
     );
   }
