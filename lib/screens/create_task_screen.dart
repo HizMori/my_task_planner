@@ -68,12 +68,12 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                     firstDate: DateTime.now(), // Минимальная дата — текущая
                     lastDate: DateTime(2100), // Максимальная дата — 2100 год
                   );
-                  if (date != null) {
+                  if (date != null && context.mounted) { // Проверяем context перед вторым await
                     final time = await showTimePicker(
                       context: context,
                       initialTime: TimeOfDay.now(), // Начальное время — текущее
                     );
-                    if (time != null) {
+                    if (time != null && context.mounted) { // Проверяем context перед setState
                       setState(() {
                         _deadline = DateTime(
                           date.year,
@@ -127,10 +127,11 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                       priority: _priority,
                       category: _category,
                     ); // Создаем объект задачи
+                    final navigator = Navigator.of(context); // Извлекаем Navigator до await
                     await _databaseService.create(
                       task,
                     ); // Сохраняем задачу в базе данных
-                    Navigator.pop(context); // Возвращаемся на предыдущий экран
+                    navigator.pop(); // Возвращаемся на предыдущий экран
                   }
                 },
                 child: const Text('Сохранить'), // Текст кнопки сохранения
