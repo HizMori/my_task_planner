@@ -308,20 +308,49 @@ class _MainScreenState extends State<MainScreen> {
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
-              // Заголовок Drawer с аватаром и именем
-              UserAccountsDrawerHeader(
-                accountName: const Text('Kawai Fukuro'),
-                accountEmail: null,
-                currentAccountPicture: const CircleAvatar(
-                  backgroundImage: NetworkImage(
-                    'https://via.placeholder.com/150', // Заглушка для аватара
-                  ),
-                ),
+              DrawerHeader(
                 decoration: BoxDecoration(
                   color: Theme.of(context).primaryColor,
                 ),
+                child: Row(
+                  children: [
+                    // Аватар
+                    const CircleAvatar(
+                      radius: 30,
+                      backgroundImage: AssetImage(
+                        'assets/images/17404f5729d1a652c70d.png', // Путь на изображение аватара
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    // Имя пользователя
+                    Expanded(
+                      child: Text(
+                        'Kawai Fukuro',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    // Кнопки Поиск и Настройки
+                    IconButton(
+                      icon: const Icon(Icons.search, color: Colors.white),
+                      onPressed: () {
+                        Navigator.pop(context); // Закрываем Drawer
+                        pushScreen(const SearchScreen());
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.settings, color: Colors.white),
+                      onPressed: () {
+                        Navigator.pop(context); // Закрываем Drawer
+                        pushScreen(const SettingsScreen());
+                      },
+                    ),
+                  ],
+                ),
               ),
-              // Пока оставляем Drawer пустым, кроме заголовка
             ],
           ),
         ),
