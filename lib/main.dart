@@ -87,14 +87,14 @@ class CreateWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Создать'), // Заголовок в AppBar
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Заголовок
-            Text('Создать', style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 16),
             // Поисковая строка
             TextField(
               decoration: InputDecoration(
