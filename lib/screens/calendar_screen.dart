@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../models/task.dart'; // Импорт модели задачи
 import '../services/database_service.dart'; // Импорт сервиса для работы с базой данных
-import '../main.dart'; // Импорт основного файла приложения
 
 // Класс экрана календаря, наследуемся от StatefulWidget, так как экран будет динамически обновляться
 class CalendarScreen extends StatefulWidget {
@@ -69,29 +68,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final mainScreenState = MainScreen.of(context);
-    final bool showBackButton =
-        mainScreenState != null && mainScreenState.screenStackLength > 1;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Календарь'),
         backgroundColor:
             Theme.of(context).primaryColor, // Заголовок экрана в верхней панели
-        leading:
-            showBackButton
-                ? IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: () {
-                    mainScreenState.popScreen();
-                  },
-                )
-                : IconButton(
-                  icon: const Icon(Icons.menu), // Кнопка для открытия Drawer
-                  onPressed: () {
-                    Scaffold.of(context).openDrawer();
-                  },
-                ),
+        leading: IconButton(
+          icon: const Icon(Icons.menu), // Кнопка для открытия Drawer
+          onPressed: () {
+            Scaffold.of(context).openDrawer();
+          },
+        ),
       ),
       body: Column(
         children: [
