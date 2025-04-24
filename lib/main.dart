@@ -83,10 +83,28 @@ class CreateWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mainScreenState = MainScreen.of(context);
+    final bool showBackButton =
+        mainScreenState != null && mainScreenState.screenStackLength > 1;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Создать'),
         backgroundColor: Theme.of(context).primaryColor,
+        leading:
+            showBackButton
+                ? IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () {
+                    mainScreenState.popScreen();
+                  },
+                )
+                : IconButton(
+                  icon: const Icon(Icons.menu), // Кнопка для открытия Drawer
+                  onPressed: () {
+                    Scaffold.of(context).openDrawer();
+                  },
+                ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -102,7 +120,6 @@ class CreateWidget extends StatelessWidget {
                 ),
               ),
               onTap: () {
-                // Переход на экран поиска через обновление стека в MainScreen
                 MainScreen.of(context)?.pushScreen(const SearchScreen());
               },
             ),
@@ -180,32 +197,30 @@ class MainScreen extends StatefulWidget {
   @override
   State<MainScreen> createState() => _MainScreenState();
 
-  // Метод для доступа к состоянию MainScreen из дочерних виджетов
   static _MainScreenState? of(BuildContext context) {
     return context.findAncestorStateOfType<_MainScreenState>();
   }
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _selectedIndex = 0; // Индекс выбранной вкладки
-  final List<Widget> _screenStack = []; // Стек экранов
-  late List<Widget> _mainScreens; // Основные экраны
+  int _selectedIndex = 0;
+  final List<Widget> _screenStack = [];
+  late List<Widget> _mainScreens;
+
+  int get screenStackLength => _screenStack.length;
 
   @override
   void initState() {
     super.initState();
-    // Инициализируем основные экраны
     _mainScreens = [
       const CreateWidget(),
       const TaskListScreen(),
       const CalendarScreen(),
       const EisenhowerScreen(),
     ];
-    // Изначально показываем первый экран
     _screenStack.add(_mainScreens[_selectedIndex]);
   }
 
-  // Список дополнительных экранов для "Ещё"
   static const List<Map<String, dynamic>> _moreScreens = [
     {'title': 'Поиск', 'screen': SearchScreen(), 'icon': Icons.search},
     {'title': 'Блокноты', 'screen': NotebooksScreen(), 'icon': Icons.book},
@@ -222,29 +237,24 @@ class _MainScreenState extends State<MainScreen> {
     {'title': 'Настройки', 'screen': SettingsScreen(), 'icon': Icons.settings},
   ];
 
-  // Функция для переключения между вкладками
   void _onItemTapped(int index) {
     if (index == 4) {
-      // Если выбрана вкладка "Ещё", показываем выпадающий список
       _showMoreMenu(context);
     } else {
       setState(() {
         _selectedIndex = index;
-        // Очищаем стек и добавляем выбранный экран
         _screenStack.clear();
         _screenStack.add(_mainScreens[_selectedIndex]);
       });
     }
   }
 
-  // Функция для добавления нового экрана в стек
   void pushScreen(Widget screen) {
     setState(() {
       _screenStack.add(screen);
     });
   }
 
-  // Функция для возврата на предыдущий экран
   void popScreen() {
     if (_screenStack.length > 1) {
       setState(() {
@@ -253,16 +263,14 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  // Перехватываем кнопку "Назад"
   Future<bool> _onWillPop() async {
     if (_screenStack.length > 1) {
       popScreen();
-      return false; // Не закрываем приложение, просто возвращаемся назад
+      return false;
     }
-    return true; // Если стек пуст, разрешаем закрыть приложение
+    return true;
   }
 
-  // Функция для показа выпадающего списка "Ещё"
   void _showMoreMenu(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -289,8 +297,7 @@ class _MainScreenState extends State<MainScreen> {
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               onTap: () {
-                Navigator.pop(context); // Закрываем меню
-                // Добавляем экран в стек вместо Navigator.push
+                Navigator.pop(context);
                 setState(() {
                   _screenStack.add(screen['screen']);
                 });
@@ -309,12 +316,33 @@ class _MainScreenState extends State<MainScreen> {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
+        drawer: Drawer(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              // Заголовок Drawer с аватаром и именем
+              UserAccountsDrawerHeader(
+                accountName: const Text('Kawai Fukuro'),
+                accountEmail: null,
+                currentAccountPicture: const CircleAvatar(
+                  backgroundImage: NetworkImage(
+                    'https://via.placeholder.com/150', // Заглушка для аватара
+                  ),
+                ),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor,
+                ),
+              ),
+              // Пока оставляем Drawer пустым, кроме заголовка
+            ],
+          ),
+        ),
         body: AnimatedSwitcher(
           duration: const Duration(milliseconds: 300),
           transitionBuilder: (Widget child, Animation<double> animation) {
             return FadeTransition(opacity: animation, child: child);
           },
-          child: _screenStack.last, // Отображаем последний экран из стека
+          child: _screenStack.last,
         ),
         bottomNavigationBar: BottomNavigationBar(
           items: const <BottomNavigationBarItem>[

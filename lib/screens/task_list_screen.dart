@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/task.dart'; // Импортируем модель задачи
 import '../services/database_service.dart'; // Импортируем сервис базы данных
 import 'create_task_screen.dart'; // Импортируем экран создания задачи
+import '../main.dart'; // Импорт основного файла приложения
 
 class TaskListScreen extends StatefulWidget {
   const TaskListScreen({super.key});
@@ -16,10 +17,28 @@ class _TaskListScreenState extends State<TaskListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final mainScreenState = MainScreen.of(context);
+    final bool showBackButton =
+        mainScreenState != null && mainScreenState.screenStackLength > 1;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Задачи'),
         backgroundColor: Theme.of(context).primaryColor, // Заголовок экрана
+        leading:
+            showBackButton
+                ? IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () {
+                    mainScreenState.popScreen();
+                  },
+                )
+                : IconButton(
+                  icon: const Icon(Icons.menu), // Кнопка для открытия Drawer
+                  onPressed: () {
+                    Scaffold.of(context).openDrawer();
+                  },
+                ),
       ),
       body: FutureBuilder<List<Task>>(
         future:
