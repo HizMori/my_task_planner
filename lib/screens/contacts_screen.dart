@@ -5,6 +5,12 @@ class ContactsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: Text('Экран контактов')));
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Контакты'),
+        backgroundColor: Theme.of(context).primaryColor,
+      ),
+      body: Center(child: Text('Экран контактов')),
+    );
   }
 }

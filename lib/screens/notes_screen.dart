@@ -6,7 +6,10 @@ class NotesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Заметки')),
+      appBar: AppBar(
+        title: const Text('Заметки'),
+        backgroundColor: Theme.of(context).primaryColor,
+      ),
       body: const Center(child: Text('Экран управления заметками')),
     );
   }

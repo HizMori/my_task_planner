@@ -25,7 +25,8 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Новая задача'), // Заголовок экрана
+        title: const Text('Новая задача'),
+        backgroundColor: Theme.of(context).primaryColor, // Заголовок экрана
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0), // Отступы внутри экрана
@@ -68,12 +69,14 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                     firstDate: DateTime.now(), // Минимальная дата — текущая
                     lastDate: DateTime(2100), // Максимальная дата — 2100 год
                   );
-                  if (date != null && context.mounted) { // Проверяем context перед вторым await
+                  if (date != null && context.mounted) {
+                    // Проверяем context перед вторым await
                     final time = await showTimePicker(
                       context: context,
                       initialTime: TimeOfDay.now(), // Начальное время — текущее
                     );
-                    if (time != null && context.mounted) { // Проверяем context перед setState
+                    if (time != null && context.mounted) {
+                      // Проверяем context перед setState
                       setState(() {
                         _deadline = DateTime(
                           date.year,
@@ -127,7 +130,9 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                       priority: _priority,
                       category: _category,
                     ); // Создаем объект задачи
-                    final navigator = Navigator.of(context); // Извлекаем Navigator до await
+                    final navigator = Navigator.of(
+                      context,
+                    ); // Извлекаем Navigator до await
                     await _databaseService.create(
                       task,
                     ); // Сохраняем задачу в базе данных

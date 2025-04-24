@@ -6,7 +6,10 @@ class NotebooksScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Блокноты')),
+      appBar: AppBar(
+        title: const Text('Блокноты'),
+        backgroundColor: Theme.of(context).primaryColor,
+      ),
       body: const Center(child: Text('Экран управления блокнотами')),
     );
   }

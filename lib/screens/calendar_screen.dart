@@ -70,7 +70,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Календарь'), // Заголовок экрана в верхней панели
+        title: const Text('Календарь'),
+        backgroundColor:
+            Theme.of(context).primaryColor, // Заголовок экрана в верхней панели
       ),
       body: Column(
         children: [

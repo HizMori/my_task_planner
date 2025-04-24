@@ -88,7 +88,8 @@ class CreateWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Создать'), // Заголовок в AppBar
+        title: const Text('Создать'),
+        backgroundColor: Theme.of(context).primaryColor, // Заголовок в AppBar
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),

@@ -18,7 +18,8 @@ class _TaskListScreenState extends State<TaskListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Задачи'), // Заголовок экрана
+        title: const Text('Задачи'),
+        backgroundColor: Theme.of(context).primaryColor, // Заголовок экрана
       ),
       body: FutureBuilder<List<Task>>(
         future:
