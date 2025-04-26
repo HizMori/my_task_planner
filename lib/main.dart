@@ -102,7 +102,7 @@ class _MainScreenState extends State<MainScreen> {
     super.initState();
     _mainScreens = [
       const HomeScreen(), // Главный экран
-      TaskListScreen(), // Задачи
+      const TaskListScreen(), // Задачи
       const CalendarScreen(), // Календарь
       const Scaffold(), // Заглушка для "Ещё"
     ];
