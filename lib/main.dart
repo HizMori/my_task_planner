@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'screens/home_screen.dart';
 import 'screens/task_list_screen.dart';
 import 'screens/calendar_screen.dart';
 import 'screens/eisenhower_screen.dart';
@@ -12,6 +13,7 @@ import 'screens/account_screen.dart';
 import 'screens/store_screen.dart';
 import 'screens/tags_screen.dart';
 import 'screens/create_task_screen.dart';
+import 'screens/create_note_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -76,107 +78,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// Виджет для быстрого создания
-class CreateWidget extends StatelessWidget {
-  const CreateWidget({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Создать'),
-        backgroundColor: Theme.of(context).primaryColor,
-        leading: IconButton(
-          icon: const Icon(Icons.menu),
-          onPressed: () {
-            Scaffold.of(context).openDrawer();
-          },
-        ),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              decoration: InputDecoration(
-                hintText: 'Новая заметка, задача или что-то ещё...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              onTap: () {
-                MainScreen.of(context)?.pushScreen(const SearchScreen());
-              },
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      MainScreen.of(context)?.pushScreen(const NotesScreen());
-                    },
-                    icon: const Icon(Icons.note),
-                    label: const Text('Новая заметка'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2ECC71),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      MainScreen.of(
-                        context,
-                      )?.pushScreen(const CreateTaskScreen());
-                    },
-                    icon: const Icon(Icons.check_box),
-                    label: const Text('Новая задача'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF9B59B6),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () {
-                MainScreen.of(context)?.pushScreen(const CountdownsScreen());
-              },
-              icon: const Icon(Icons.timer),
-              label: const Text('Новый обратный отсчёт'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                minimumSize: const Size(double.infinity, 0),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 // Главный экран с нижней навигацией
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -200,8 +101,8 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _mainScreens = [
-      const TaskListScreen(), // Задачи
-      const NotesScreen(), // Заметки
+      const HomeScreen(), // Главный экран
+      TaskListScreen(), // Задачи
       const CalendarScreen(), // Календарь
       const Scaffold(), // Заглушка для "Ещё"
     ];
@@ -222,6 +123,7 @@ class _MainScreenState extends State<MainScreen> {
       'screen': EisenhowerScreen(),
       'icon': Icons.grid_on,
     },
+    {'title': 'Заметки', 'screen': NotesScreen(), 'icon': Icons.notes},
     {'title': 'Аккаунт', 'screen': AccountScreen(), 'icon': Icons.person},
     {'title': 'Магазин', 'screen': StoreScreen(), 'icon': Icons.store},
     {'title': 'Метки', 'screen': TagsScreen(), 'icon': Icons.tag},
@@ -311,7 +213,7 @@ class _MainScreenState extends State<MainScreen> {
               ElevatedButton.icon(
                 onPressed: () {
                   Navigator.pop(context);
-                  pushScreen(const NotesScreen());
+                  pushScreen(const CreateNoteScreen());
                 },
                 icon: const Icon(Icons.note, color: Colors.white),
                 label: const Text('Новая заметка'),
@@ -374,6 +276,7 @@ class _MainScreenState extends State<MainScreen> {
       onWillPop: _onWillPop,
       child: Scaffold(
         drawer: Drawer(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
@@ -446,7 +349,7 @@ class _MainScreenState extends State<MainScreen> {
               children: [
                 IconButton(
                   icon: Icon(
-                    Icons.list,
+                    Icons.home,
                     color:
                         _selectedIndex == 0
                             ? Colors.white
@@ -456,7 +359,7 @@ class _MainScreenState extends State<MainScreen> {
                 ),
                 IconButton(
                   icon: Icon(
-                    Icons.note,
+                    Icons.checklist,
                     color:
                         _selectedIndex == 1
                             ? Colors.white

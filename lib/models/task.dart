@@ -4,6 +4,7 @@ class Task {
   id; // Уникальный идентификатор задачи (может быть null при создании)
   final String title; // Название задачи
   final String? description; // Описание задачи (может быть пустым)
+  final String? dueDate;
   final DateTime? deadline; // Дедлайн задачи (может быть пустым)
   final String priority; // Приоритет задачи (например, "low", "medium", "high")
   final String category; // Категория задачи (например, "работа", "личное")
@@ -16,6 +17,7 @@ class Task {
     this.id, // ID задачи
     required this.title, // Обязательное поле — название
     this.description, // Описание (необязательно)
+    this.dueDate,
     this.deadline, // Дедлайн (необязательно)
     required this.priority, // Обязательное поле — приоритет
     required this.category, // Обязательное поле — категория

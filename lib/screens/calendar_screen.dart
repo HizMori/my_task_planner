@@ -71,8 +71,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Календарь'),
-        backgroundColor:
-            Theme.of(context).primaryColor, // Заголовок экрана в верхней панели
+        backgroundColor: const Color(0xFF2A9D8F),
+        foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.menu), // Кнопка для открытия Drawer
           onPressed: () {

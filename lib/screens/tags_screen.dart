@@ -36,7 +36,8 @@ class _TagsScreenState extends State<TagsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Управление метками'),
-        backgroundColor: Theme.of(context).primaryColor,
+        backgroundColor: const Color(0xFF2A9D8F),
+        foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.menu), // Кнопка для открытия Drawer
           onPressed: () {

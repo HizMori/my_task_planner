@@ -1,6 +1,7 @@
 import 'package:sqflite/sqflite.dart'; // Пакет для работы с SQLite
 import 'package:path/path.dart'; // Пакет для работы с путями
 import '../models/task.dart'; // Импортируем модель задачи
+import '../models/note.dart'; // Импортируем модель заметки
 
 class DatabaseService {
   static final DatabaseService instance =
@@ -41,6 +42,7 @@ class DatabaseService {
         id INTEGER PRIMARY KEY AUTOINCREMENT, 
         title TEXT NOT NULL, 
         description TEXT, 
+        dueDate TEXT,
         deadline TEXT, 
         priority TEXT NOT NULL, 
         category TEXT NOT NULL, 
@@ -48,6 +50,14 @@ class DatabaseService {
         assignedTo TEXT 
       )
     ''');
+    await db.execute('''
+          CREATE TABLE notes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            createdAt TEXT NOT NULL
+          )
+        ''');
   }
 
   // Метод для создания новой задачи
@@ -90,6 +100,33 @@ class DatabaseService {
       where: 'id = ?', // Условие — удаляем задачу с конкретным ID
       whereArgs: [id], // Аргумент для условия
     );
+  }
+
+  // Новые методы для заметок
+  Future<int> createNote(Note note) async {
+    final db = await database;
+    return await db.insert('notes', note.toMap());
+  }
+
+  Future<List<Note>> readAllNotes() async {
+    final db = await database;
+    final result = await db.query('notes');
+    return result.map((map) => Note.fromMap(map)).toList();
+  }
+
+  Future<int> updateNote(Note note) async {
+    final db = await database;
+    return await db.update(
+      'notes',
+      note.toMap(),
+      where: 'id = ?',
+      whereArgs: [note.id],
+    );
+  }
+
+  Future<int> deleteNote(int id) async {
+    final db = await database;
+    return await db.delete('notes', where: 'id = ?', whereArgs: [id]);
   }
 
   // Метод для закрытия базы данных

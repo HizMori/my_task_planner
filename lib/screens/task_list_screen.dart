@@ -18,7 +18,8 @@ class _TaskListScreenState extends State<TaskListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Задачи'),
-        backgroundColor: Theme.of(context).primaryColor, // Заголовок экрана
+        backgroundColor: const Color(0xFF2A9D8F),
+        foregroundColor: Colors.white, // Заголовок экрана
         leading: IconButton(
           icon: const Icon(Icons.menu), // Кнопка для открытия Drawer
           onPressed: () {
