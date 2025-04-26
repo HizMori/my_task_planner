@@ -47,6 +47,12 @@ class MyApp extends StatelessWidget {
             ),
           ),
         ),
+        dialogTheme: const DialogTheme(
+          backgroundColor: Color(0xFFF5F5DC), // Фон для светлой темы
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(12)),
+          ),
+        ),
         useMaterial3: true,
       ),
       darkTheme: ThemeData(
@@ -68,6 +74,12 @@ class MyApp extends StatelessWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
+          ),
+        ),
+        dialogTheme: const DialogTheme(
+          backgroundColor: Color(0xFF1C2526), // Фон для тёмной темы
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(12)),
           ),
         ),
         useMaterial3: true,
@@ -147,6 +159,12 @@ class _MainScreenState extends State<MainScreen> {
     setState(() {
       _screenStack.add(screen);
     });
+    // После возврата с экрана вызываем setState, чтобы обновить текущий экран
+    Future.delayed(Duration.zero, () {
+      if (_screenStack.length > 1) {
+        setState(() {});
+      }
+    });
   }
 
   void popScreen() {
@@ -154,6 +172,8 @@ class _MainScreenState extends State<MainScreen> {
       setState(() {
         _screenStack.removeLast();
       });
+      // Обновляем текущий экран после возврата
+      setState(() {});
     }
   }
 

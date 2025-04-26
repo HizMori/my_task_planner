@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/task.dart'; // Импортируем модель задачи
 import '../services/database_service.dart'; // Импортируем сервис базы данных
+import '../main.dart';
 
 class CreateTaskScreen extends StatefulWidget {
   const CreateTaskScreen({super.key});
@@ -21,19 +22,89 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   final DatabaseService _databaseService =
       DatabaseService.instance; // Экземпляр сервиса базы данных
 
+  Future<void> _showDeleteConfirmationDialog(BuildContext context) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Удаление задачи'),
+          content: const Text('Удалить эту задачу?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(false); // Отмена — возвращаем false
+              },
+              child: const Text('Отмена'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(true); // Удалить — возвращаем true
+              },
+              child: const Text('Удалить'),
+            ),
+          ],
+        );
+      },
+    );
+
+    // Если пользователь подтвердил удаление (result == true), закрываем экран
+    if (result == true) {
+      MainScreen.of(context)?.popScreen();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Новая задача'),
         backgroundColor: const Color(0xFF2A9D8F),
         foregroundColor: Colors.white, // Заголовок экрана
         leading: IconButton(
-          icon: const Icon(Icons.menu), // Кнопка для открытия Drawer
+          icon: const Icon(Icons.arrow_back), // Кнопка "Назад"
           onPressed: () {
-            Scaffold.of(context).openDrawer();
+            MainScreen.of(
+              context,
+            )?.popScreen(); // Возвращаемся на предыдущий экран
           },
         ),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) {
+              if (value == 'delete') {
+                _showDeleteConfirmationDialog(context);
+              }
+            },
+            itemBuilder:
+                (BuildContext context) => [
+                  PopupMenuItem<String>(
+                    value: 'delete',
+                    child: Text(
+                      'Удалить',
+                      style: TextStyle(
+                        color:
+                            theme
+                                .textTheme
+                                .bodyMedium
+                                ?.color, // Цвет текста из темы
+                      ),
+                    ),
+                  ),
+                ],
+            // Стилизуем фон и форму выпадающего меню
+            color: theme.scaffoldBackgroundColor, // Фон меню
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12), // Закруглённые углы
+            ),
+            elevation: 4, // Тень
+            offset: const Offset(
+              0,
+              kToolbarHeight - 10,
+            ), // Смещаем меню вниз на высоту AppBar
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0), // Отступы внутри экрана
@@ -137,13 +208,8 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                       priority: _priority,
                       category: _category,
                     ); // Создаем объект задачи
-                    final navigator = Navigator.of(
-                      context,
-                    ); // Извлекаем Navigator до await
-                    await _databaseService.create(
-                      task,
-                    ); // Сохраняем задачу в базе данных
-                    navigator.pop(); // Возвращаемся на предыдущий экран
+                    await _databaseService.create(task);
+                    MainScreen.of(context)?.popScreen();
                   }
                 },
                 child: const Text('Сохранить'), // Текст кнопки сохранения
