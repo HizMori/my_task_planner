@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/task.dart'; // Импортируем модель задачи
 import '../services/database_service.dart'; // Импортируем сервис базы данных
-import 'create_task_screen.dart'; // Импортируем экран создания задачи
 
 class TaskListScreen extends StatefulWidget {
   const TaskListScreen({super.key});
@@ -87,17 +86,6 @@ class _TaskListScreenState extends State<TaskListScreen> {
             );
           }
         },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const CreateTaskScreen(),
-            ), // Переходим к экрану создания задачи
-          ).then((_) => setState(() {})); // Обновляем экран после возвращения
-        },
-        child: const Icon(Icons.add), // Иконка кнопки — плюс
       ),
     );
   }
