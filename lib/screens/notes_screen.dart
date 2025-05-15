@@ -16,17 +16,7 @@ class _NotesScreenState extends State<NotesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Заметки'),
-        backgroundColor: const Color(0xFF2A9D8F),
-        foregroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.menu),
-          onPressed: () {
-            Scaffold.of(context).openDrawer();
-          },
-        ),
-      ),
+      appBar: AppBar(title: const Text('Заметки')),
       body: FutureBuilder<List<Note>>(
         future: _databaseService.readAllNotes(),
         builder: (context, snapshot) {

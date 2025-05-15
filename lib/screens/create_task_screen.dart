@@ -59,8 +59,6 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Новая задача'),
-        backgroundColor: const Color(0xFF2A9D8F),
-        foregroundColor: Colors.white, // Заголовок экрана
         leading: IconButton(
           icon: const Icon(Icons.arrow_back), // Кнопка "Назад"
           onPressed: () {

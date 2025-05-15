@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart'; // Импортируем для явного использования Poppins
 import '../models/task.dart';
 import '../services/database_service.dart';
 import 'create_task_screen.dart';
@@ -27,18 +28,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Главное'),
-        backgroundColor: const Color(0xFF2A9D8F),
-        foregroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.menu),
-          onPressed: () {
-            Scaffold.of(context).openDrawer();
-          },
-        ),
-      ),
+      appBar: AppBar(title: Text('Главное')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -47,11 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
             // Приветствие
             Text(
               '${_getGreeting()}, Kawai Fukuro!',
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF2A9D8F),
-              ),
+              style: theme.textTheme.headlineLarge,
             ),
             const SizedBox(height: 16),
             // Кнопки быстрого действия
@@ -68,10 +57,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       ).then((_) => setState(() {}));
                     },
                     icon: const Icon(Icons.check_box, color: Colors.white),
-                    label: const Text('Добавить задачу'),
+                    label: const Text(
+                      'Добавить задачу',
+                    ), // Стиль из elevatedButtonTheme
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2A9D8F),
-                      foregroundColor: Colors.white,
+                      backgroundColor: const Color(0xFF7e61f3),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -91,10 +81,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       ).then((_) => setState(() {}));
                     },
                     icon: const Icon(Icons.note, color: Colors.white),
-                    label: const Text('Добавить заметку'),
+                    label: const Text(
+                      'Добавить заметку',
+                    ), // Стиль из elevatedButtonTheme
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2A9D8F),
-                      foregroundColor: Colors.white,
+                      backgroundColor: const Color(0xFF7e61f3),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -106,14 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 24),
             // Заголовок "Задачи на сегодня"
-            const Text(
-              'Задачи на сегодня',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF2A9D8F),
-              ),
-            ),
+            Text('Задачи на сегодня', style: theme.textTheme.headlineLarge),
             const SizedBox(height: 16),
             // Список задач на сегодня
             Expanded(
@@ -123,9 +107,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
                   } else if (snapshot.hasError) {
-                    return Center(child: Text('Ошибка: ${snapshot.error}'));
+                    return Center(
+                      child: Text(
+                        'Ошибка: ${snapshot.error}',
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    );
                   } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const Center(child: Text('Нет задач на сегодня'));
+                    return Center(
+                      child: Text(
+                        'Нет задач на сегодня',
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    );
                   } else {
                     final tasks =
                         snapshot.data!.where((task) {
@@ -138,7 +132,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         }).toList();
 
                     if (tasks.isEmpty) {
-                      return const Center(child: Text('Нет задач на сегодня'));
+                      return Center(
+                        child: Text(
+                          'Нет задач на сегодня',
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      );
                     }
 
                     return ListView.builder(
@@ -157,10 +156,16 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: ListTile(
                             title: Text(
                               task.title,
-                              style: const TextStyle(color: Color(0xFF2A9D8F)),
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: const Color(0xFF2A9D8F),
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                             subtitle: Text(
                               '${task.category ?? 'Без категории'} • ${task.priority ?? 'Без приоритета'}',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: Colors.black54,
+                              ),
                             ),
                             trailing: Checkbox(
                               value: task.isCompleted,

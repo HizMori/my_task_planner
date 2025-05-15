@@ -55,8 +55,6 @@ class _CreateNoteScreenState extends State<CreateNoteScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF2A9D8F),
-        foregroundColor: Colors.white,
         title: const Text('Заметки'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),

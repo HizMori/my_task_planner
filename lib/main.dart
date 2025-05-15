@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'screens/home_screen.dart';
 import 'screens/task_list_screen.dart';
 import 'screens/calendar_screen.dart';
@@ -6,14 +8,12 @@ import 'screens/eisenhower_screen.dart';
 import 'screens/contacts_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/search_screen.dart';
-import 'screens/notebooks_screen.dart';
-import 'screens/notes_screen.dart';
 import 'screens/countdowns_screen.dart';
 import 'screens/account_screen.dart';
 import 'screens/store_screen.dart';
 import 'screens/tags_screen.dart';
 import 'screens/create_task_screen.dart';
-import 'screens/create_note_screen.dart';
+import 'screens/welcome_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -22,33 +22,81 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
+  Future<Widget> _getInitialScreen() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isFirstLaunch = prefs.getBool('isFirstLaunch') ?? true;
+    final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+
+    if (isFirstLaunch || !isLoggedIn) {
+      return const WelcomeScreen();
+    }
+    return const MainScreen();
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Task Planner',
       theme: ThemeData(
         brightness: Brightness.light,
-        primaryColor: const Color(0xFF2A9D8F), // Акцентный зелёный
-        scaffoldBackgroundColor: const Color(0xFFF5F5DC), // Кремовый фон
-        textTheme: const TextTheme(
-          bodyMedium: TextStyle(color: Color(0xFF000000), fontSize: 16),
-          headlineSmall: TextStyle(
-            color: Color(0xFF000000),
+        primaryColor: const Color(0xFF7e61f3),
+        scaffoldBackgroundColor: const Color(0xFFeef4ff),
+        textTheme: TextTheme(
+          // Основной текст
+          bodyMedium: GoogleFonts.poppins(
+            fontSize: 16,
+            color: const Color(0xFF000000),
+            fontWeight: FontWeight.normal,
+          ),
+          // Заголовки среднего размера
+          headlineSmall: GoogleFonts.poppins(
             fontSize: 20,
             fontWeight: FontWeight.bold,
+            color: const Color(0xFF000000),
           ),
+          // Крупные заголовки
+          headlineLarge: GoogleFonts.poppins(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: const Color(0xFF7e61f3),
+          ),
+          // Текст для подсказок
+          bodySmall: GoogleFonts.poppins(
+            fontSize: 14,
+            color: Colors.black54,
+            fontWeight: FontWeight.normal,
+          ),
+        ),
+        appBarTheme: AppBarTheme(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          titleTextStyle: GoogleFonts.poppins(
+            fontSize: 30,
+            fontWeight: FontWeight.bold,
+            color: const Color(0xFF7e61f3),
+          ),
+          centerTitle: true,
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF2A9D8F),
+            backgroundColor: const Color(0xFF7e61f3),
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
+            padding: const EdgeInsets.symmetric(vertical: 16),
+          ).copyWith(
+            textStyle: MaterialStateProperty.all(
+              GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
           ),
         ),
         dialogTheme: const DialogTheme(
-          backgroundColor: Color(0xFFF5F5DC), // Фон для светлой темы
+          backgroundColor: Color(0xFFeef4ff),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.all(Radius.circular(12)),
           ),
@@ -57,27 +105,60 @@ class MyApp extends StatelessWidget {
       ),
       darkTheme: ThemeData(
         brightness: Brightness.dark,
-        primaryColor: const Color(0xFF2A9D8F),
+        primaryColor: const Color(0xFF7e61f3),
         scaffoldBackgroundColor: const Color(0xFF1C2526),
-        textTheme: const TextTheme(
-          bodyMedium: TextStyle(color: Color(0xFFFFFFFF), fontSize: 16),
-          headlineSmall: TextStyle(
-            color: Color(0xFFFFFFFF),
+        textTheme: TextTheme(
+          bodyMedium: GoogleFonts.poppins(
+            fontSize: 16,
+            color: const Color(0xFFFFFFFF),
+            fontWeight: FontWeight.normal,
+          ),
+          headlineSmall: GoogleFonts.poppins(
             fontSize: 20,
             fontWeight: FontWeight.bold,
+            color: const Color(0xFFFFFFFF),
           ),
+          headlineLarge: GoogleFonts.poppins(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: const Color(0xFF7e61f3),
+          ),
+          bodySmall: GoogleFonts.poppins(
+            fontSize: 14,
+            color: Colors.white70,
+            fontWeight: FontWeight.normal,
+          ),
+        ),
+        appBarTheme: AppBarTheme(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          titleTextStyle: GoogleFonts.poppins(
+            fontSize: 30,
+            fontWeight: FontWeight.bold,
+            color: const Color(0xFF7e61f3),
+          ),
+          centerTitle: true,
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF2A9D8F),
+            backgroundColor: const Color(0xFF7e61f3),
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
+            padding: const EdgeInsets.symmetric(vertical: 16),
+          ).copyWith(
+            textStyle: MaterialStateProperty.all(
+              GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
           ),
         ),
         dialogTheme: const DialogTheme(
-          backgroundColor: Color(0xFF1C2526), // Фон для тёмной темы
+          backgroundColor: Color(0xFF1C2526),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.all(Radius.circular(12)),
           ),
@@ -85,12 +166,26 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       themeMode: ThemeMode.system,
-      home: const MainScreen(),
+      home: FutureBuilder<Widget>(
+        future: _getInitialScreen(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+          if (snapshot.hasError) {
+            return const Scaffold(
+              body: Center(child: Text('Ошибка при загрузке')),
+            );
+          }
+          return snapshot.data!;
+        },
+      ),
     );
   }
 }
 
-// Главный экран с нижней навигацией
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
@@ -113,17 +208,16 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _mainScreens = [
-      const HomeScreen(), // Главный экран
-      const TaskListScreen(), // Задачи
-      const CalendarScreen(), // Календарь
-      const Scaffold(), // Заглушка для "Ещё"
+      const HomeScreen(),
+      const TaskListScreen(),
+      const CalendarScreen(),
+      const Scaffold(),
     ];
     _screenStack.add(_mainScreens[_selectedIndex]);
   }
 
   static const List<Map<String, dynamic>> _moreScreens = [
     {'title': 'Поиск', 'screen': SearchScreen(), 'icon': Icons.search},
-    {'title': 'Блокноты', 'screen': NotebooksScreen(), 'icon': Icons.book},
     {
       'title': 'Обратные отсчёты',
       'screen': CountdownsScreen(),
@@ -135,7 +229,6 @@ class _MainScreenState extends State<MainScreen> {
       'screen': EisenhowerScreen(),
       'icon': Icons.grid_on,
     },
-    {'title': 'Заметки', 'screen': NotesScreen(), 'icon': Icons.notes},
     {'title': 'Аккаунт', 'screen': AccountScreen(), 'icon': Icons.person},
     {'title': 'Магазин', 'screen': StoreScreen(), 'icon': Icons.store},
     {'title': 'Метки', 'screen': TagsScreen(), 'icon': Icons.tag},
@@ -144,7 +237,6 @@ class _MainScreenState extends State<MainScreen> {
 
   void _onItemTapped(int index) {
     if (index == 3) {
-      // "Ещё"
       _showMoreMenu(context);
     } else {
       setState(() {
@@ -159,7 +251,6 @@ class _MainScreenState extends State<MainScreen> {
     setState(() {
       _screenStack.add(screen);
     });
-    // После возврата с экрана вызываем setState, чтобы обновить текущий экран
     Future.delayed(Duration.zero, () {
       if (_screenStack.length > 1) {
         setState(() {});
@@ -172,7 +263,6 @@ class _MainScreenState extends State<MainScreen> {
       setState(() {
         _screenStack.removeLast();
       });
-      // Обновляем текущий экран после возврата
       setState(() {});
     }
   }
@@ -188,7 +278,7 @@ class _MainScreenState extends State<MainScreen> {
   void _showMoreMenu(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFFF5F5DC),
+      backgroundColor: const Color(0xFFeef4ff),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -199,7 +289,10 @@ class _MainScreenState extends State<MainScreen> {
           itemBuilder: (context, index) {
             final screen = _moreScreens[index];
             return ListTile(
-              leading: Icon(screen['icon'], color: const Color(0xFF2A9D8F)),
+              leading: Icon(
+                screen['icon'],
+                color: const Color(0xFF7e61f3), // Заменили #2A9D8F на #7e61f3
+              ),
               title: Text(
                 screen['title'],
                 style: Theme.of(context).textTheme.bodyMedium,
@@ -220,7 +313,7 @@ class _MainScreenState extends State<MainScreen> {
   void _showCreateOptions(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFFF5F5DC),
+      backgroundColor: const Color(0xFFeef4ff),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -233,35 +326,11 @@ class _MainScreenState extends State<MainScreen> {
               ElevatedButton.icon(
                 onPressed: () {
                   Navigator.pop(context);
-                  pushScreen(const CreateNoteScreen());
-                },
-                icon: const Icon(Icons.note, color: Colors.white),
-                label: const Text('Новая заметка'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2A9D8F),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  minimumSize: const Size(double.infinity, 0),
-                ),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pop(context);
                   pushScreen(const CreateTaskScreen());
                 },
                 icon: const Icon(Icons.check_box, color: Colors.white),
                 label: const Text('Новая задача'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2A9D8F),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
                   minimumSize: const Size(double.infinity, 0),
                 ),
               ),
@@ -274,12 +343,6 @@ class _MainScreenState extends State<MainScreen> {
                 icon: const Icon(Icons.timer, color: Colors.white),
                 label: const Text('Новый обратный отсчёт'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2A9D8F),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
                   minimumSize: const Size(double.infinity, 0),
                 ),
               ),
@@ -295,52 +358,6 @@ class _MainScreenState extends State<MainScreen> {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        drawer: Drawer(
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          child: ListView(
-            padding: EdgeInsets.zero,
-            children: [
-              DrawerHeader(
-                decoration: const BoxDecoration(color: Color(0xFF2A9D8F)),
-                child: Row(
-                  children: [
-                    const CircleAvatar(
-                      radius: 30,
-                      backgroundImage: AssetImage(
-                        'assets/images/17404f5729d1a652c70d.png',
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Text(
-                        'Kawai Fukuro',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.search, color: Colors.white),
-                      onPressed: () {
-                        Navigator.pop(context);
-                        pushScreen(const SearchScreen());
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.settings, color: Colors.white),
-                      onPressed: () {
-                        Navigator.pop(context);
-                        pushScreen(const SettingsScreen());
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
         body: AnimatedSwitcher(
           duration: const Duration(milliseconds: 300),
           transitionBuilder: (Widget child, Animation<double> animation) {
@@ -352,7 +369,7 @@ class _MainScreenState extends State<MainScreen> {
           onPressed: () {
             _showCreateOptions(context);
           },
-          backgroundColor: const Color(0xFFE76F51),
+          backgroundColor: const Color(0xFFf37e61),
           foregroundColor: Colors.white,
           shape: const CircleBorder(),
           child: const Icon(Icons.add, size: 30),
@@ -361,7 +378,7 @@ class _MainScreenState extends State<MainScreen> {
         bottomNavigationBar: ClipPath(
           clipper: NavBarClipper(),
           child: BottomAppBar(
-            color: const Color(0xFF2A9D8F),
+            color: const Color(0xFF7e61f3),
             shape: const CircularNotchedRectangle(),
             notchMargin: 8.0,
             child: Row(
@@ -417,7 +434,6 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-// Кастомный клиппер для создания выреза в BottomAppBar
 class NavBarClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {

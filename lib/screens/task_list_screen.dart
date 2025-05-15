@@ -16,17 +16,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Задачи'),
-        backgroundColor: const Color(0xFF2A9D8F),
-        foregroundColor: Colors.white, // Заголовок экрана
-        leading: IconButton(
-          icon: const Icon(Icons.menu), // Кнопка для открытия Drawer
-          onPressed: () {
-            Scaffold.of(context).openDrawer();
-          },
-        ),
-      ),
+      appBar: AppBar(title: const Text('Задачи')),
       body: FutureBuilder<List<Task>>(
         future:
             _databaseService
