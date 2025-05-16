@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../models/task.dart'; // Импортируем модель задачи
-import '../services/database_service.dart'; // Импортируем сервис базы данных
+import '../models/task.dart';
+import '../services/database_service.dart';
 import '../main.dart';
 
 class CreateTaskScreen extends StatefulWidget {
@@ -11,16 +11,22 @@ class CreateTaskScreen extends StatefulWidget {
 }
 
 class _CreateTaskScreenState extends State<CreateTaskScreen> {
-  final _formKey = GlobalKey<FormState>(); // Ключ для управления формой
-  String _title = ''; // Переменная для хранения названия задачи
-  String _description = ''; // Переменная для хранения описания задачи
-  DateTime? _deadline; // Переменная для хранения дедлайна (может быть null)
-  String _priority =
-      'medium'; // Переменная для хранения приоритета (по умолчанию "medium")
-  String _category =
-      'работа'; // Переменная для хранения категории (по умолчанию "работа")
-  final DatabaseService _databaseService =
-      DatabaseService.instance; // Экземпляр сервиса базы данных
+  final _formKey = GlobalKey<FormState>();
+  String _title = '';
+  String _description = '';
+  DateTime? _deadline;
+  String _priority = 'medium';
+  String _category = 'работа';
+  final DatabaseService _databaseService = DatabaseService.instance;
+
+  // Ключи для получения позиции контейнеров
+  final _priorityKey = GlobalKey();
+  final _categoryKey = GlobalKey();
+
+  bool _isPriorityActive = false;
+  bool _isCategoryActive = false;
+  bool _isPriorityMenuOpen = false;
+  bool _isCategoryMenuOpen = false;
 
   Future<void> _showDeleteConfirmationDialog(BuildContext context) async {
     final result = await showDialog<bool>(
@@ -31,15 +37,11 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
           content: const Text('Удалить эту задачу?'),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(false); // Отмена — возвращаем false
-              },
+              onPressed: () => Navigator.of(context).pop(false),
               child: const Text('Отмена'),
             ),
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(true); // Удалить — возвращаем true
-              },
+              onPressed: () => Navigator.of(context).pop(true),
               child: const Text('Удалить'),
             ),
           ],
@@ -47,25 +49,85 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
       },
     );
 
-    // Если пользователь подтвердил удаление (result == true), закрываем экран
     if (result == true) {
       MainScreen.of(context)?.popScreen();
     }
   }
 
+  // Обновлённая функция для отображения выпадающего меню под строкой
+  Future<void> _showDropdownMenu({
+    required BuildContext context,
+    required GlobalKey key,
+    required List<String> items,
+    required String selectedValue,
+    required ValueChanged<String> onChanged,
+    required VoidCallback onClose,
+  }) async {
+    final RenderBox renderBox =
+        key.currentContext!.findRenderObject() as RenderBox;
+    final Offset localPosition = renderBox.localToGlobal(Offset.zero);
+    final Size size = renderBox.size;
+
+    // Позиция меню начинается под нижней границей контейнера
+    final Offset menuPosition = Offset(
+      localPosition.dx,
+      localPosition.dy + size.height,
+    );
+
+    final selectedItem = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        menuPosition.dx,
+        menuPosition.dy,
+        menuPosition.dx + 200, // Примерная ширина меню
+        menuPosition.dy +
+            (items.length *
+                48.0), // Высота меню, основанная на количестве элементов
+      ),
+      items:
+          items.map((item) {
+            return PopupMenuItem<String>(
+              value: item,
+              child: Text(
+                item == 'low'
+                    ? 'Низкий'
+                    : item == 'medium'
+                    ? 'Средний'
+                    : item == 'high'
+                    ? 'Высокий'
+                    : item == 'работа'
+                    ? 'Работа'
+                    : item == 'личное'
+                    ? 'Личное'
+                    : item == 'учёба'
+                    ? 'Учёба'
+                    : 'Другое',
+              ),
+            );
+          }).toList(),
+      initialValue: selectedValue,
+    );
+
+    // Вызываем onChanged, если элемент выбран
+    if (selectedItem != null) {
+      onChanged(selectedItem);
+    }
+
+    // Сбрасываем состояние после закрытия меню
+    onClose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Новая задача'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back), // Кнопка "Назад"
-          onPressed: () {
-            MainScreen.of(
-              context,
-            )?.popScreen(); // Возвращаемся на предыдущий экран
-          },
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => MainScreen.of(context)?.popScreen(),
         ),
         actions: [
           PopupMenuButton<String>(
@@ -77,82 +139,62 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
             },
             itemBuilder:
                 (BuildContext context) => [
-                  PopupMenuItem<String>(
+                  const PopupMenuItem<String>(
                     value: 'delete',
-                    child: Text(
-                      'Удалить',
-                      style: TextStyle(
-                        color:
-                            theme
-                                .textTheme
-                                .bodyMedium
-                                ?.color, // Цвет текста из темы
-                      ),
-                    ),
+                    child: Text('Удалить'),
                   ),
                 ],
-            // Стилизуем фон и форму выпадающего меню
-            color: theme.scaffoldBackgroundColor, // Фон меню
+            color: theme.scaffoldBackgroundColor,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12), // Закруглённые углы
+              borderRadius: BorderRadius.circular(12),
             ),
-            elevation: 4, // Тень
-            offset: const Offset(
-              0,
-              kToolbarHeight - 10,
-            ), // Смещаем меню вниз на высоту AppBar
+            elevation: 4,
+            offset: const Offset(0, kToolbarHeight - 10),
           ),
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0), // Отступы внутри экрана
+        padding: const EdgeInsets.all(16.0),
         child: Form(
-          key: _formKey, // Привязываем ключ к форме для валидации
+          key: _formKey,
           child: ListView(
             children: [
               TextFormField(
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Название',
-                ), // Поле ввода названия
+                  labelStyle: theme.textTheme.bodyMedium,
+                ),
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Введите название'; // Проверка, что поле не пустое
-                  }
+                  if (value == null || value.isEmpty) return 'Введите название';
                   return null;
                 },
-                onSaved:
-                    (value) => _title = value!, // Сохраняем введенное значение
+                onSaved: (value) => _title = value!,
               ),
               TextFormField(
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Описание',
-                ), // Поле ввода описания
-                onSaved:
-                    (value) =>
-                        _description =
-                            value ??
-                            '', // Сохраняем введенное значение (или пустую строку)
+                  labelStyle: theme.textTheme.bodyMedium,
+                ),
+                onSaved: (value) => _description = value ?? '',
               ),
               ListTile(
                 title: Text(
                   _deadline == null ? 'Выбрать дедлайн' : _deadline.toString(),
-                ), // Отображаем дедлайн или приглашение выбрать его
-                trailing: const Icon(Icons.calendar_today), // Иконка календаря
+                ),
+                trailing: const Icon(Icons.calendar_today),
                 onTap: () async {
                   final date = await showDatePicker(
                     context: context,
-                    initialDate: DateTime.now(), // Начальная дата — текущая
-                    firstDate: DateTime.now(), // Минимальная дата — текущая
-                    lastDate: DateTime(2100), // Максимальная дата — 2100 год
+                    initialDate: DateTime.now(),
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime(2100),
                   );
                   if (date != null && context.mounted) {
-                    // Проверяем context перед вторым await
                     final time = await showTimePicker(
                       context: context,
-                      initialTime: TimeOfDay.now(), // Начальное время — текущее
+                      initialTime: TimeOfDay.now(),
                     );
                     if (time != null && context.mounted) {
-                      // Проверяем context перед setState
                       setState(() {
                         _deadline = DateTime(
                           date.year,
@@ -160,57 +202,170 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                           date.day,
                           time.hour,
                           time.minute,
-                        ); // Устанавливаем полный дедлайн (дата + время)
+                        );
                       });
                     }
                   }
                 },
               ),
-              DropdownButtonFormField<String>(
-                value: _priority, // Текущий выбранный приоритет
-                decoration: const InputDecoration(
-                  labelText: 'Приоритет',
-                ), // Поле выбора приоритета
-                items: const [
-                  DropdownMenuItem(value: 'low', child: Text('Низкий')),
-                  DropdownMenuItem(value: 'medium', child: Text('Средний')),
-                  DropdownMenuItem(value: 'high', child: Text('Высокий')),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Приоритет', style: theme.textTheme.bodySmall),
+                  const SizedBox(height: 4),
+                  GestureDetector(
+                    key: _priorityKey,
+                    onTap: () {
+                      if (_isPriorityMenuOpen) {
+                        // Если меню открыто, закрываем его и сбрасываем состояние
+                        setState(() {
+                          _isPriorityActive = false;
+                          _isPriorityMenuOpen = false;
+                        });
+                        return;
+                      }
+
+                      // Открываем меню и устанавливаем активное состояние
+                      setState(() {
+                        _isPriorityActive = true;
+                        _isPriorityMenuOpen = true;
+                      });
+
+                      _showDropdownMenu(
+                        context: context,
+                        key: _priorityKey,
+                        items: ['low', 'medium', 'high'],
+                        selectedValue: _priority,
+                        onChanged: (value) => setState(() => _priority = value),
+                        onClose:
+                            () => setState(() {
+                              _isPriorityActive = false;
+                              _isPriorityMenuOpen = false;
+                            }),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color:
+                              _isPriorityActive
+                                  ? const Color(0xFF7e61f3)
+                                  : Colors.grey,
+                          width: 1,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            _priority == 'low'
+                                ? 'Низкий'
+                                : _priority == 'medium'
+                                ? 'Средний'
+                                : 'Высокий',
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                          const Icon(Icons.arrow_drop_down),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
-                onChanged:
-                    (value) => setState(
-                      () => _priority = value!,
-                    ), // Обновляем приоритет при выборе
               ),
-              TextFormField(
-                decoration: const InputDecoration(
-                  labelText: 'Категория',
-                ), // Поле ввода категории
-                initialValue: _category, // Начальное значение категории
-                onSaved:
-                    (value) =>
-                        _category =
-                            value ??
-                            'работа', // Сохраняем категорию (по умолчанию "работа")
+              const SizedBox(height: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Категория', style: theme.textTheme.bodySmall),
+                  const SizedBox(height: 4),
+                  GestureDetector(
+                    key: _categoryKey,
+                    onTap: () {
+                      if (_isCategoryMenuOpen) {
+                        // Если меню открыто, закрываем его и сбрасываем состояние
+                        setState(() {
+                          _isCategoryActive = false;
+                          _isCategoryMenuOpen = false;
+                        });
+                        return;
+                      }
+
+                      // Открываем меню и устанавливаем активное состояние
+                      setState(() {
+                        _isCategoryActive = true;
+                        _isCategoryMenuOpen = true;
+                      });
+
+                      _showDropdownMenu(
+                        context: context,
+                        key: _categoryKey,
+                        items: ['работа', 'личное', 'учёба', 'другое'],
+                        selectedValue: _category,
+                        onChanged: (value) => setState(() => _category = value),
+                        onClose:
+                            () => setState(() {
+                              _isCategoryActive = false;
+                              _isCategoryMenuOpen = false;
+                            }),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color:
+                              _isCategoryActive
+                                  ? const Color(0xFF7e61f3)
+                                  : Colors.grey,
+                          width: 1,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            _category == 'работа'
+                                ? 'Работа'
+                                : _category == 'личное'
+                                ? 'Личное'
+                                : _category == 'учёба'
+                                ? 'Учёба'
+                                : 'Другое',
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                          const Icon(Icons.arrow_drop_down),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 20), // Добавляем отступ перед кнопкой
+              const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () async {
                   if (_formKey.currentState!.validate()) {
-                    // Проверяем, что форма заполнена корректно
-                    _formKey.currentState!
-                        .save(); // Сохраняем все данные из формы
+                    _formKey.currentState!.save();
                     final task = Task(
                       title: _title,
                       description: _description,
                       deadline: _deadline,
                       priority: _priority,
                       category: _category,
-                    ); // Создаем объект задачи
+                    );
                     await _databaseService.create(task);
                     MainScreen.of(context)?.popScreen();
                   }
                 },
-                child: const Text('Сохранить'), // Текст кнопки сохранения
+                child: const Text('Сохранить'),
               ),
             ],
           ),

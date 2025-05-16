@@ -32,7 +32,6 @@ class WelcomeScreen extends StatelessWidget {
               const SizedBox(height: 20),
               Text(
                 'Привет, здесь тебя ждёт много дел, это крутой планировщик задач.',
-                style: theme.textTheme.bodyMedium,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 20),

@@ -6,8 +6,8 @@ class CountdownsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Обратные отсчёты')),
-      body: const Center(child: Text('Экран управления обратными отсчётами')),
+      appBar: AppBar(title: Text('Обратные отсчёты')),
+      body: Center(child: Text('Экран управления обратными отсчётами')),
     );
   }
 }

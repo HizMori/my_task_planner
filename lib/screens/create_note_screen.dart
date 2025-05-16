@@ -55,70 +55,49 @@ class _CreateNoteScreenState extends State<CreateNoteScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Заметки'),
+        title: Text('Заметки'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            _saveNote();
-          },
+          onPressed: _saveNote,
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: () {
-              // Функциональность шаринга (можно добавить позже)
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.more_vert),
-            onPressed: () {
-              // Функциональность меню (можно добавить позже)
-            },
-          ),
+          IconButton(icon: const Icon(Icons.share), onPressed: () {}),
+          IconButton(icon: const Icon(Icons.more_vert), onPressed: () {}),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Поле ввода заголовка
-            TextField(
-              controller: _titleController,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Поле ввода заголовка
+          TextField(
+            controller: _titleController,
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              hintText: 'Заголовок',
+              hintStyle: TextStyle(color: Colors.grey),
+            ),
+          ),
+          // Дата и количество символов
+          Text(
+            '${_createdAt.day} ${_getMonthName(_createdAt.month)} ${_createdAt.hour}:${_createdAt.minute.toString().padLeft(2, '0')} • ${_contentController.text.length} символов',
+          ),
+          const SizedBox(height: 16),
+          // Поле ввода текста
+          Expanded(
+            child: TextField(
+              controller: _contentController,
+              maxLines: null,
               decoration: const InputDecoration(
                 border: InputBorder.none,
-                hintText: 'Заголовок',
+                hintText: 'Начать ввод',
                 hintStyle: TextStyle(color: Colors.grey),
               ),
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF2A9D8F),
-              ),
+              onChanged: (value) {
+                setState(() {}); // Обновляем количество символов
+              },
             ),
-            // Дата и количество символов
-            Text(
-              '${_createdAt.day} ${_getMonthName(_createdAt.month)} ${_createdAt.hour}:${_createdAt.minute.toString().padLeft(2, '0')} • ${_contentController.text.length} символов',
-              style: const TextStyle(color: Colors.grey),
-            ),
-            const SizedBox(height: 16),
-            // Поле ввода текста
-            Expanded(
-              child: TextField(
-                controller: _contentController,
-                maxLines: null,
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  hintText: 'Начать ввод',
-                  hintStyle: TextStyle(color: Colors.grey),
-                ),
-                onChanged: (value) {
-                  setState(() {}); // Обновляем количество символов
-                },
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

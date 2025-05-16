@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart'; // Импортируем для явного использования Poppins
 import '../models/task.dart';
 import '../services/database_service.dart';
-import 'create_task_screen.dart';
-import 'create_note_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -43,47 +40,6 @@ class _HomeScreenState extends State<HomeScreen> {
               style: theme.textTheme.headlineLarge,
             ),
             const SizedBox(height: 16),
-            // Кнопки быстрого действия
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const CreateTaskScreen(),
-                        ),
-                      ).then((_) => setState(() {}));
-                    },
-                    icon: const Icon(Icons.check_box, color: Colors.white),
-                    label: const Text(
-                      'Добавить задачу',
-                    ), // Стиль из elevatedButtonTheme
-                    style: theme.elevatedButtonTheme.style,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const CreateNoteScreen(),
-                        ),
-                      ).then((_) => setState(() {}));
-                    },
-                    icon: const Icon(Icons.note, color: Colors.white),
-                    label: const Text(
-                      'Добавить заметку',
-                    ), // Стиль из elevatedButtonTheme
-                    style: theme.elevatedButtonTheme.style,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
             // Заголовок "Задачи на сегодня"
             Text('Задачи на сегодня', style: theme.textTheme.headlineLarge),
             const SizedBox(height: 16),
@@ -102,12 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     );
                   } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return Center(
-                      child: Text(
-                        'Нет задач на сегодня',
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                    );
+                    return Center(child: Text('Нет задач на сегодня'));
                   } else {
                     final tasks =
                         snapshot.data!.where((task) {
@@ -120,12 +71,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         }).toList();
 
                     if (tasks.isEmpty) {
-                      return Center(
-                        child: Text(
-                          'Нет задач на сегодня',
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                      );
+                      return Center(child: Text('Нет задач на сегодня'));
                     }
 
                     return ListView.builder(
