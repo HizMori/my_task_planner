@@ -66,7 +66,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     final RenderBox renderBox =
         key.currentContext!.findRenderObject() as RenderBox;
     final Offset localPosition = renderBox.localToGlobal(Offset.zero);
-    final Size size = renderBox.size;
+    final Size size = renderBox.size; // Получаем ширину строки
 
     // Позиция меню начинается под нижней границей контейнера
     final Offset menuPosition = Offset(
@@ -79,33 +79,61 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
       position: RelativeRect.fromLTRB(
         menuPosition.dx,
         menuPosition.dy,
-        menuPosition.dx + 200, // Примерная ширина меню
+        menuPosition.dx +
+            size.width, // Ширина меню равна ширине строки (без регулировки)
         menuPosition.dy +
             (items.length *
                 48.0), // Высота меню, основанная на количестве элементов
       ),
       items:
           items.map((item) {
+            final isSelected =
+                item == selectedValue; // Проверяем, выбран ли элемент
             return PopupMenuItem<String>(
               value: item,
-              child: Text(
-                item == 'low'
-                    ? 'Низкий'
-                    : item == 'medium'
-                    ? 'Средний'
-                    : item == 'high'
-                    ? 'Высокий'
-                    : item == 'работа'
-                    ? 'Работа'
-                    : item == 'личное'
-                    ? 'Личное'
-                    : item == 'учёба'
-                    ? 'Учёба'
-                    : 'Другое',
+              padding:
+                  EdgeInsets.zero, // Убираем внутренние отступы PopupMenuItem
+              child: Container(
+                width: double.infinity, // Растягиваем на всю доступную ширину
+                height:
+                    48.0, // Фиксированная высота, чтобы соответствовать стандартной высоте PopupMenuItem
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color:
+                      isSelected
+                          ? const Color(0xFF7e61f3)
+                          : null, // Фиолетовый фон для выбранного элемента
+                  borderRadius: BorderRadius.zero,
+                ),
+                alignment:
+                    Alignment.centerLeft, // Выравниваем текст по левому краю
+                child: Text(
+                  item == 'low'
+                      ? 'Низкий'
+                      : item == 'medium'
+                      ? 'Средний'
+                      : item == 'high'
+                      ? 'Высокий'
+                      : item == 'работа'
+                      ? 'Работа'
+                      : item == 'личное'
+                      ? 'Личное'
+                      : item == 'учёба'
+                      ? 'Учёба'
+                      : 'Другое',
+                  style: TextStyle(
+                    color:
+                        isSelected
+                            ? Colors.white
+                            : Theme.of(context).textTheme.bodyMedium?.color,
+                  ),
+                ),
               ),
             );
           }).toList(),
       initialValue: selectedValue,
+      color:
+          Colors.white, // Устанавливаем белый фон для всего выпадающего списка
     );
 
     // Вызываем onChanged, если элемент выбран

@@ -483,13 +483,39 @@ class NavBarClipper extends CustomClipper<Path> {
   Path getClip(Size size) {
     final path = Path();
     const notchRadius = 30.0;
+    const cornerRadius = 20.0; // Радиус закругления углов
     final notchCenter = size.width / 2;
 
+    // Начало пути (левый нижний угол)
+    path.moveTo(0, size.height);
+
+    // Линия к левому верхнему углу с закруглением
+    path.lineTo(0, cornerRadius);
+    path.quadraticBezierTo(
+      0,
+      0,
+      cornerRadius,
+      0,
+    ); // Закругление левого верхнего угла
+
+    // Линия до начала выреза под FAB
     path.lineTo(notchCenter - notchRadius, 0);
-    path.quadraticBezierTo(notchCenter, 0, notchCenter, notchRadius);
+    path.quadraticBezierTo(notchCenter, 0, notchCenter, notchRadius); // Вырез
     path.quadraticBezierTo(notchCenter, 0, notchCenter + notchRadius, 0);
-    path.lineTo(size.width, 0);
+
+    // Линия до правого верхнего угла с закруглением
+    path.lineTo(size.width - cornerRadius, 0);
+    path.quadraticBezierTo(
+      size.width,
+      0,
+      size.width,
+      cornerRadius,
+    ); // Закругление правого верхнего угла
+
+    // Линия к правому нижнему углу
     path.lineTo(size.width, size.height);
+
+    // Закрываем путь
     path.lineTo(0, size.height);
     path.close();
 
