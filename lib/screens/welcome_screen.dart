@@ -1,28 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../main.dart';
+import 'sign_in_screen.dart'; // Импорт экрана входа
+import 'signup_screen.dart'; // Импорт экрана регистрации
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
-
-  // Метод для установки состояния входа и перехода на MainScreen
-  Future<void> _handleLogin(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(
-      'isLoggedIn',
-      true,
-    ); // Устанавливаем, что пользователь вошёл
-    await prefs.setBool(
-      'isFirstLaunch',
-      false,
-    ); // Отмечаем, что это не первый запуск
-
-    // Переходим на MainScreen
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const MainScreen()),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +48,15 @@ class WelcomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 40),
               ElevatedButton(
-                onPressed: () => _handleLogin(context), // Имитация входа
+                onPressed: () {
+                  // Переход на экран входа
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SignInScreen(),
+                    ),
+                  );
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(
                     0xFF9C27B0,
@@ -86,7 +75,15 @@ class WelcomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: () => _handleLogin(context), // Имитация регистрации
+                onPressed: () {
+                  // Переход на экран регистрации
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SignUpScreen(),
+                    ),
+                  );
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.grey[300], // Серый фон для "Sign up"
                   foregroundColor: Colors.black87,
