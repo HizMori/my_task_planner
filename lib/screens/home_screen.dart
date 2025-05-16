@@ -60,13 +60,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     label: const Text(
                       'Добавить задачу',
                     ), // Стиль из elevatedButtonTheme
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF7e61f3),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
+                    style: theme.elevatedButtonTheme.style,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -84,13 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     label: const Text(
                       'Добавить заметку',
                     ), // Стиль из elevatedButtonTheme
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF7e61f3),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
+                    style: theme.elevatedButtonTheme.style,
                   ),
                 ),
               ],

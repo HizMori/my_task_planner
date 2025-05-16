@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
-import '../models/task.dart'; // Импорт модели задачи
-import '../services/database_service.dart'; // Импорт сервиса для работы с базой данных
+import '../models/task.dart';
+import '../services/database_service.dart';
 
-// Класс экрана календаря, наследуемся от StatefulWidget, так как экран будет динамически обновляться
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
 
@@ -11,144 +10,126 @@ class CalendarScreen extends StatefulWidget {
   State<CalendarScreen> createState() => _CalendarScreenState();
 }
 
-// Состояние экрана календаря
 class _CalendarScreenState extends State<CalendarScreen> {
-  final DatabaseService _databaseService =
-      DatabaseService.instance; // Экземпляр сервиса базы данных
-  DateTime _focusedDay =
-      DateTime.now(); // День, на который сейчас сфокусирован календарь
-  DateTime? _selectedDay; // День, который пользователь выбрал (может быть null)
-  Map<DateTime, List<Task>> _events =
-      {}; // Карта: ключ — дата, значение — список задач на эту дату
+  final DatabaseService _databaseService = DatabaseService.instance;
+  DateTime _focusedDay = DateTime.now();
+  DateTime? _selectedDay;
+  Map<DateTime, List<Task>> _events = {};
 
   @override
   void initState() {
     super.initState();
-    _selectedDay = _focusedDay; // При запуске выбираем текущий день
-    _loadTasks(); // Загружаем задачи из базы данных
+    _selectedDay = _focusedDay;
+    _loadTasks();
   }
 
-  // Асинхронный метод для загрузки всех задач и их группировки по датам
   Future<void> _loadTasks() async {
-    final tasks =
-        await _databaseService.readAllTasks(); // Получаем все задачи из базы
-    final Map<DateTime, List<Task>> eventMap =
-        {}; // Временная карта для событий
+    final tasks = await _databaseService.readAllTasks();
+    final Map<DateTime, List<Task>> eventMap = {};
     for (var task in tasks) {
       if (task.deadline != null) {
-        // Проверяем, есть ли у задачи дедлайн
-        // Создаём объект даты без времени (только год, месяц, день)
         final date = DateTime(
           task.deadline!.year,
           task.deadline!.month,
           task.deadline!.day,
         );
         if (eventMap[date] == null) {
-          eventMap[date] =
-              []; // Если для этой даты ещё нет списка задач, создаём его
+          eventMap[date] = [];
         }
-        eventMap[date]!.add(task); // Добавляем задачу в список для этой даты
+        eventMap[date]!.add(task);
       }
     }
     setState(() {
-      _events = eventMap; // Обновляем состояние с новыми событиями
+      _events = eventMap;
     });
   }
 
-  // Метод для получения списка задач на конкретный день
   List<Task> _getEventsForDay(DateTime day) {
-    final date = DateTime(
-      day.year,
-      day.month,
-      day.day,
-    ); // Приводим дату к формату без времени
-    return _events[date] ??
-        []; // Возвращаем список задач или пустой список, если задач нет
+    final date = DateTime(day.year, day.month, day.day);
+    return _events[date] ?? [];
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Календарь')),
+      appBar: AppBar(title: const Text('Календарь')), // Стиль из AppBarTheme
       body: Column(
         children: [
-          // Виджет календаря из пакета table_calendar
           TableCalendar(
-            firstDay: DateTime.utc(
-              2020,
-              1,
-              1,
-            ), // Самая ранняя дата, которую можно выбрать
-            lastDay: DateTime.utc(2030, 12, 31), // Самая поздняя дата
-            focusedDay:
-                _focusedDay, // День, на который сейчас сфокусирован календарь
-            selectedDayPredicate:
-                (day) =>
-                    isSameDay(_selectedDay, day), // Проверяем, выбран ли день
+            firstDay: DateTime.utc(2020, 1, 1),
+            lastDay: DateTime.utc(2030, 12, 31),
+            focusedDay: _focusedDay,
+            selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
             onDaySelected: (selectedDay, focusedDay) {
-              // Обработчик выбора дня пользователем
               setState(() {
-                _selectedDay = selectedDay; // Обновляем выбранный день
-                _focusedDay = focusedDay; // Обновляем фокус
+                _selectedDay = selectedDay;
+                _focusedDay = focusedDay;
               });
             },
-            eventLoader:
-                _getEventsForDay, // Функция, которая возвращает задачи для каждого дня
-            calendarStyle: const CalendarStyle(
+            eventLoader: _getEventsForDay,
+            calendarStyle: CalendarStyle(
               todayDecoration: BoxDecoration(
-                color: Colors.blueAccent, // Цвет кружка для сегодняшнего дня
+                color: theme.primaryColor, // Используем #7e61f3
                 shape: BoxShape.circle,
               ),
-              selectedDecoration: BoxDecoration(
-                color: Colors.deepOrange, // Цвет кружка для выбранного дня
+              selectedDecoration: const BoxDecoration(
+                color: Colors.deepOrange,
                 shape: BoxShape.circle,
               ),
               markerDecoration: BoxDecoration(
-                color: Colors.green, // Цвет маркера для дней с задачами
+                color: theme.primaryColor, // Заменили Colors.green на #7e61f3
                 shape: BoxShape.circle,
               ),
             ),
           ),
-          const SizedBox(
-            height: 8.0,
-          ), // Отступ между календарём и списком задач
-          Expanded(
-            child: _buildTaskList(), // Список задач на выбранный день
-          ),
+          const SizedBox(height: 8.0),
+          Expanded(child: _buildTaskList()),
         ],
       ),
     );
   }
 
-  // Метод для построения списка задач под календарём
   Widget _buildTaskList() {
-    final tasks = _getEventsForDay(
-      _selectedDay!,
-    ); // Получаем задачи для выбранного дня
+    final theme = Theme.of(context);
+    final tasks = _getEventsForDay(_selectedDay!);
+
     if (tasks.isEmpty) {
-      return const Center(
-        child: Text('Нет задач на этот день'),
-      ); // Если задач нет, показываем сообщение
+      return Center(
+        child: Text(
+          'Нет задач на этот день',
+          style: theme.textTheme.bodyMedium, // Явно применяем стиль
+        ),
+      );
     }
+
     return ListView.builder(
-      itemCount: tasks.length, // Количество задач в списке
+      itemCount: tasks.length,
       itemBuilder: (context, index) {
-        final task = tasks[index]; // Текущая задача из списка
+        final task = tasks[index];
         return ListTile(
-          title: Text(task.title), // Название задачи
+          title: Text(
+            task.title,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600, // Делаем заголовок чуть жирнее
+              color: theme.primaryColor, // #7e61f3 для соответствия теме
+            ),
+          ),
           subtitle: Text(
-            '${task.category} • ${task.priority}',
-          ), // Категория и приоритет задачи
+            '${task.category ?? 'Без категории'} • ${task.priority ?? 'Без приоритета'}',
+            style: theme.textTheme.bodySmall, // Соответствует теме
+          ),
           trailing:
               task.isCompleted
-                  ? const Icon(
+                  ? Icon(
                     Icons.check,
-                    color: Colors.green,
-                  ) // Иконка для завершённой задачи
-                  : const Icon(
+                    color: Colors.green, // Оставим зелёный для завершённых
+                  )
+                  : Icon(
                     Icons.hourglass_empty,
-                    color: Colors.red,
-                  ), // Иконка для незавершённой
+                    color: theme.primaryColor, // #7e61f3 для незавершённых
+                  ),
         );
       },
     );

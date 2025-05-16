@@ -42,25 +42,21 @@ class MyApp extends StatelessWidget {
         primaryColor: const Color(0xFF7e61f3),
         scaffoldBackgroundColor: const Color(0xFFeef4ff),
         textTheme: TextTheme(
-          // Основной текст
           bodyMedium: GoogleFonts.poppins(
             fontSize: 16,
             color: const Color(0xFF000000),
             fontWeight: FontWeight.normal,
           ),
-          // Заголовки среднего размера
           headlineSmall: GoogleFonts.poppins(
             fontSize: 20,
             fontWeight: FontWeight.bold,
             color: const Color(0xFF000000),
           ),
-          // Крупные заголовки
           headlineLarge: GoogleFonts.poppins(
             fontSize: 24,
             fontWeight: FontWeight.bold,
             color: const Color(0xFF7e61f3),
           ),
-          // Текст для подсказок
           bodySmall: GoogleFonts.poppins(
             fontSize: 14,
             color: Colors.black54,
@@ -289,10 +285,7 @@ class _MainScreenState extends State<MainScreen> {
           itemBuilder: (context, index) {
             final screen = _moreScreens[index];
             return ListTile(
-              leading: Icon(
-                screen['icon'],
-                color: const Color(0xFF7e61f3), // Заменили #2A9D8F на #7e61f3
-              ),
+              leading: Icon(screen['icon'], color: const Color(0xFF7e61f3)),
               title: Text(
                 screen['title'],
                 style: Theme.of(context).textTheme.bodyMedium,
@@ -355,6 +348,8 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
@@ -372,60 +367,109 @@ class _MainScreenState extends State<MainScreen> {
           backgroundColor: const Color(0xFFf37e61),
           foregroundColor: Colors.white,
           shape: const CircleBorder(),
+          elevation: 2.0,
+          focusElevation: 4.0,
           child: const Icon(Icons.add, size: 30),
         ),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-        bottomNavigationBar: ClipPath(
-          clipper: NavBarClipper(),
-          child: BottomAppBar(
-            color: const Color(0xFF7e61f3),
-            shape: const CircularNotchedRectangle(),
-            notchMargin: 8.0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                IconButton(
-                  icon: Icon(
-                    Icons.home,
-                    color:
-                        _selectedIndex == 0
-                            ? Colors.white
-                            : const Color(0xFFB0BEC5),
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            // Тень с адаптацией к контуру выреза
+            boxShadow: [
+              // Основная тень под панелью
+              BoxShadow(
+                color:
+                    theme.brightness == Brightness.light
+                        ? Colors.black.withOpacity(0.04)
+                        : Colors.white.withOpacity(0.04),
+                offset: const Offset(0, 0),
+                blurRadius: 20,
+                spreadRadius: 0,
+              ),
+              // Тень, имитирующая контур выреза (левая часть)
+              BoxShadow(
+                color:
+                    theme.brightness == Brightness.light
+                        ? Colors.black.withOpacity(0.04)
+                        : Colors.white.withOpacity(0.04),
+                offset: const Offset(-1, -1), // Смещение влево и вверх
+                blurRadius: 25,
+                spreadRadius: 0,
+              ),
+              // Тень, имитирующая контур выреза (правая часть)
+              BoxShadow(
+                color:
+                    theme.brightness == Brightness.light
+                        ? Colors.black.withOpacity(0.04)
+                        : Colors.white.withOpacity(0.04),
+                offset: const Offset(2, -2), // Смещение вправо и вверх
+                blurRadius: 25,
+                spreadRadius: 0,
+              ),
+              // Дополнительная тень для плавности
+              BoxShadow(
+                color:
+                    theme.brightness == Brightness.light
+                        ? Colors.black.withOpacity(0.02)
+                        : Colors.white.withOpacity(0.02),
+                offset: const Offset(0, -3),
+                blurRadius: 40,
+                spreadRadius: 0,
+              ),
+            ],
+          ),
+          child: ClipPath(
+            clipper: NavBarClipper(),
+            child: BottomAppBar(
+              color: theme.scaffoldBackgroundColor, // Фон как у экрана
+              shape: const CircularNotchedRectangle(),
+              notchMargin: 8.0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      Icons.home,
+                      color:
+                          _selectedIndex == 0
+                              ? const Color(0xFF7e61f3)
+                              : const Color(0xFFB0BEC5),
+                    ),
+                    onPressed: () => _onItemTapped(0),
                   ),
-                  onPressed: () => _onItemTapped(0),
-                ),
-                IconButton(
-                  icon: Icon(
-                    Icons.checklist,
-                    color:
-                        _selectedIndex == 1
-                            ? Colors.white
-                            : const Color(0xFFB0BEC5),
+                  IconButton(
+                    icon: Icon(
+                      Icons.checklist,
+                      color:
+                          _selectedIndex == 1
+                              ? const Color(0xFF7e61f3)
+                              : const Color(0xFFB0BEC5),
+                    ),
+                    onPressed: () => _onItemTapped(1),
                   ),
-                  onPressed: () => _onItemTapped(1),
-                ),
-                const SizedBox(width: 40),
-                IconButton(
-                  icon: Icon(
-                    Icons.calendar_today,
-                    color:
-                        _selectedIndex == 2
-                            ? Colors.white
-                            : const Color(0xFFB0BEC5),
+                  const SizedBox(width: 40),
+                  IconButton(
+                    icon: Icon(
+                      Icons.calendar_today,
+                      color:
+                          _selectedIndex == 2
+                              ? const Color(0xFF7e61f3)
+                              : const Color(0xFFB0BEC5),
+                    ),
+                    onPressed: () => _onItemTapped(2),
                   ),
-                  onPressed: () => _onItemTapped(2),
-                ),
-                IconButton(
-                  icon: Icon(
-                    Icons.more_horiz,
-                    color:
-                        _selectedIndex == 3
-                            ? Colors.white
-                            : const Color(0xFFB0BEC5),
+                  IconButton(
+                    icon: Icon(
+                      Icons.more_horiz,
+                      color:
+                          _selectedIndex == 3
+                              ? const Color(0xFF7e61f3)
+                              : const Color(0xFFB0BEC5),
+                    ),
+                    onPressed: () => _onItemTapped(3),
                   ),
-                  onPressed: () => _onItemTapped(3),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
