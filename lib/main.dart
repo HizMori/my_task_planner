@@ -4,14 +4,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'screens/home_screen.dart';
 import 'screens/task_list_screen.dart';
 import 'screens/calendar_screen.dart';
-import 'screens/eisenhower_screen.dart';
 import 'screens/contacts_screen.dart';
 import 'screens/settings_screen.dart';
-import 'screens/search_screen.dart';
 import 'screens/countdowns_screen.dart';
 import 'screens/account_screen.dart';
-import 'screens/store_screen.dart';
-import 'screens/tags_screen.dart';
 import 'screens/create_task_screen.dart';
 import 'screens/welcome_screen.dart';
 
@@ -213,21 +209,13 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   static const List<Map<String, dynamic>> _moreScreens = [
-    {'title': 'Поиск', 'screen': SearchScreen(), 'icon': Icons.search},
     {
       'title': 'Обратные отсчёты',
       'screen': CountdownsScreen(),
       'icon': Icons.timer,
     },
     {'title': 'Контакты', 'screen': ContactsScreen(), 'icon': Icons.contacts},
-    {
-      'title': 'Матрица Эйзенхауэра',
-      'screen': EisenhowerScreen(),
-      'icon': Icons.grid_on,
-    },
     {'title': 'Аккаунт', 'screen': AccountScreen(), 'icon': Icons.person},
-    {'title': 'Магазин', 'screen': StoreScreen(), 'icon': Icons.store},
-    {'title': 'Метки', 'screen': TagsScreen(), 'icon': Icons.tag},
     {'title': 'Настройки', 'screen': SettingsScreen(), 'icon': Icons.settings},
   ];
 
