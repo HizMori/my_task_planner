@@ -129,8 +129,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         Icons.circle,
                         size: 8,
                         color: _currentTextIndex == index
-                            ? Colors.white // Белая точка для текущего текста
-                            : Colors.grey, // Серая точка для остальных
+                            ? const Color(0xFF7e61f3) // Изменён цвет активного индикатора
+                            : Colors.white, // Неактивные индикаторы остаются серыми
                       ),
                       if (index < _texts.length - 1) const SizedBox(width: 4),
                     ],

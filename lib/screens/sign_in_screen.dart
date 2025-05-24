@@ -334,7 +334,7 @@ class _SignInScreenState extends State<SignInScreen> {
                           );
                         },
                         child: Text(
-                          'Зарегистрируйтесь',
+                          'Зарегистрироваться',
                           style: GoogleFonts.poppins(
                             color: const Color(0xFF7e61f3),
                             fontWeight: FontWeight.bold,
