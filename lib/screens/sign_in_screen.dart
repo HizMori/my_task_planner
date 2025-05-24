@@ -1,25 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../main.dart'; // Импорт MainScreen
-import 'signup_screen.dart'; // Импорт экрана регистрации
+import '../main.dart';
+import 'signup_screen.dart';
 
-class SignInScreen extends StatelessWidget {
+class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
+
+  @override
+  State<SignInScreen> createState() => _SignInScreenState();
+}
+
+class _SignInScreenState extends State<SignInScreen> {
+  // Состояние видимости пароля
+  bool _isPasswordVisible = false;
+  // Состояние переключателя "Запомнить меня"
+  bool _isRememberMe = true;
+  // FocusNode для отслеживания фокуса полей
+  final FocusNode _emailFocusNode = FocusNode();
+  final FocusNode _passwordFocusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    // Добавляем слушатели для фокуса
+    _emailFocusNode.addListener(() => setState(() {}));
+    _passwordFocusNode.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    // Очищаем FocusNode
+    _emailFocusNode.dispose();
+    _passwordFocusNode.dispose();
+    super.dispose();
+  }
 
   // Метод для установки состояния входа и перехода на MainScreen
   Future<void> _handleLogin(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(
-      'isLoggedIn',
-      true,
-    ); // Устанавливаем, что пользователь вошёл
-    await prefs.setBool(
-      'isFirstLaunch',
-      false,
-    ); // Отмечаем, что это не первый запуск
+    await prefs.setBool('isLoggedIn', true);
+    await prefs.setBool('isFirstLaunch', false);
 
-    // Переходим на MainScreen
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (context) => const MainScreen()),
@@ -40,13 +62,15 @@ class SignInScreen extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Логотип (заглушка)
-                  const Icon(
-                    Icons.task_alt,
-                    size: 100,
-                    color: Color(0xFF7e61f3),
+                  // Логотип
+                  Container(
+                    child: const Icon(
+                      Icons.task_alt,
+                      size: 100,
+                      color: Color(0xFF7e61f3),
+                    ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 15),
                   Text(
                     'Task manager',
                     style: GoogleFonts.poppins(
@@ -56,9 +80,9 @@ class SignInScreen extends StatelessWidget {
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 15),
                   Text(
-                    'Sign in',
+                    'Вход',
                     style: GoogleFonts.poppins(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -67,68 +91,147 @@ class SignInScreen extends StatelessWidget {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 20),
-                  // Поле email
-                  TextFormField(
-                    decoration: InputDecoration(
-                      prefixIcon: const Icon(Icons.email, color: Colors.grey),
-                      hintText: 'Your email',
-                      hintStyle: GoogleFonts.poppins(color: Colors.grey),
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
+                  // Поле Ваша почта
+                  Container(
+                    decoration: BoxDecoration(
+                      boxShadow: _emailFocusNode.hasFocus
+                          ? [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.2),
+                                offset: const Offset(0, 4),
+                                blurRadius: 8,
+                                spreadRadius: 1,
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: TextFormField(
+                      focusNode: _emailFocusNode,
+                      decoration: InputDecoration(
+                        prefixIcon: Icon(
+                          Icons.email,
+                          color: _emailFocusNode.hasFocus
+                              ? const Color(0xFF7e61f3)
+                              : Colors.grey,
+                        ),
+                        hintText: 'Ваша почта',
+                        hintStyle: GoogleFonts.poppins(color: Colors.grey),
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                              color: Color(0xFF7e61f3), width: 1.5),
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(height: 20),
-                  // Поле password
-                  TextFormField(
-                    obscureText: true,
-                    decoration: InputDecoration(
-                      prefixIcon: const Icon(Icons.lock, color: Colors.grey),
-                      suffixIcon: const Icon(
-                        Icons.visibility_off,
-                        color: Colors.grey,
-                      ),
-                      hintText: 'Password',
-                      hintStyle: GoogleFonts.poppins(color: Colors.grey),
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
+                  // Поле пароль
+                  Container(
+                    decoration: BoxDecoration(
+                      boxShadow: _passwordFocusNode.hasFocus
+                          ? [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.2),
+                                offset: const Offset(0, 4),
+                                blurRadius: 8,
+                                spreadRadius: 1,
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: TextFormField(
+                      focusNode: _passwordFocusNode,
+                      obscureText: !_isPasswordVisible,
+                      decoration: InputDecoration(
+                        prefixIcon: Icon(
+                          Icons.lock,
+                          color: _passwordFocusNode.hasFocus
+                              ? const Color(0xFF7e61f3)
+                              : Colors.grey,
+                        ),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _isPasswordVisible
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                            color: Colors.grey,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _isPasswordVisible = !_isPasswordVisible;
+                            });
+                          },
+                        ),
+                        hintText: 'Пароль',
+                        hintStyle: GoogleFonts.poppins(color: Colors.grey),
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                              color: Color(0xFF7e61f3), width: 1.5),
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  // "Forgotten password?" и "Remember me" на разных уровнях, порядок изменён
+                  // "Забыл пароль" и "Запомнить меня" на разных уровнях
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       TextButton(
                         onPressed: () {},
                         child: Text(
-                          'Forgotten password?',
-                          style: GoogleFonts.poppins(color: Colors.grey),
+                          'Забыл пароль?',
+                          style: GoogleFonts.poppins(
+                            color: const Color(0xFF7e61f3),
+                          ),
                         ),
                       ),
                     ],
                   ),
                   Row(
                     children: [
-                      Switch(
-                        value: true,
-                        onChanged: (value) {},
-                        activeColor: const Color(0xFF7e61f3),
-                        activeTrackColor: const Color(
-                          0xFF7e61f3,
-                        ).withOpacity(0.5),
+                      SwitchTheme(
+                        data: SwitchThemeData(
+                          trackOutlineColor: MaterialStateProperty.resolveWith(
+                            (states) {
+                              if (states.contains(MaterialState.selected)) {
+                                return const Color(0xFF7e61f3);
+                              }
+                              return Colors.grey.withOpacity(0.3);
+                            },
+                          ),
+                          trackOutlineWidth: MaterialStateProperty.all(1.0),
+                        ),
+                        child: Switch(
+                          value: _isRememberMe,
+                          onChanged: (value) {
+                            setState(() {
+                              _isRememberMe = value;
+                            });
+                          },
+                          activeColor: const Color(0xFF7e61f3),
+                          activeTrackColor: Colors.white,
+                          inactiveTrackColor: Colors.white,
+                          inactiveThumbColor: Colors.grey,
+                        ),
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'Remember me',
-                        style: GoogleFonts.poppins(color: Colors.grey),
+                        'Запомнить меня',
+                        style: GoogleFonts.poppins(
+                          color: Colors.black,
+                        ),
                       ),
                     ],
                   ),
@@ -145,7 +248,7 @@ class SignInScreen extends StatelessWidget {
                       ),
                     ),
                     child: Text(
-                      'Sign in',
+                      'Вход',
                       style: GoogleFonts.poppins(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -153,11 +256,33 @@ class SignInScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  // OR
-                  Text(
-                    'OR',
-                    style: GoogleFonts.poppins(color: Colors.grey),
-                    textAlign: TextAlign.center,
+                  // ИЛИ с полосками
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Container(
+                          height: 1,
+                          color: const Color.fromARGB(84, 158, 158, 158),
+                          margin: const EdgeInsets.only(right: 10),
+                        ),
+                      ),
+                      Text(
+                        'ИЛИ',
+                        style: GoogleFonts.poppins(
+                          color: Colors.grey,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      Expanded(
+                        child: Container(
+                          height: 1,
+                          color: const Color.fromARGB(84, 158, 158, 158),
+                          margin: const EdgeInsets.only(left: 10),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 20),
                   // Социальные кнопки (заглушка)
@@ -196,7 +321,7 @@ class SignInScreen extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        "Don't have an account? ",
+                        "У вас нет аккаунта? ",
                         style: GoogleFonts.poppins(color: Colors.grey),
                       ),
                       GestureDetector(
@@ -209,7 +334,7 @@ class SignInScreen extends StatelessWidget {
                           );
                         },
                         child: Text(
-                          'Sign up',
+                          'Зарегистрируйтесь',
                           style: GoogleFonts.poppins(
                             color: const Color(0xFF7e61f3),
                             fontWeight: FontWeight.bold,
