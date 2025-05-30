@@ -41,8 +41,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+
+    // Цвета в зависимости от темы
+    final backgroundColor = isDarkMode ? Colors.grey[900] : const Color(0xFFeef4ff);
+    final textColor = isDarkMode ? Colors.white : Colors.black;
+    final hintColor = isDarkMode ? Colors.grey[400] : Colors.grey;
+    final fieldFillColor = isDarkMode ? Colors.grey[800] : Colors.white;
+    final dividerColor = isDarkMode ? Colors.grey[700] : const Color.fromARGB(84, 158, 158, 158);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFeef4ff),
+      backgroundColor: backgroundColor,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -51,10 +61,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // Логотип (заглушка, как в SignInScreen)
-                const Icon(
+                Icon(
                   Icons.task_alt,
                   size: 100,
-                  color: Color(0xFF7e61f3),
+                  color: isDarkMode ? Colors.white : const Color(0xFF7e61f3),
                 ),
                 const SizedBox(height: 20),
                 Text(
@@ -62,7 +72,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   style: GoogleFonts.poppins(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black,
+                    color: textColor,
                   ),
                 ),
                 const SizedBox(height: 15),
@@ -71,7 +81,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   style: GoogleFonts.poppins(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black,
+                    color: textColor,
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -81,7 +91,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     boxShadow: _loginFocusNode.hasFocus
                         ? [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
+                              color: Colors.black.withOpacity(isDarkMode ? 0.1 : 0.2),
                               offset: const Offset(0, 4),
                               blurRadius: 8,
                               spreadRadius: 1,
@@ -96,12 +106,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         Icons.person,
                         color: _loginFocusNode.hasFocus
                             ? const Color(0xFF7e61f3)
-                            : Colors.grey,
+                            : (isDarkMode ? Colors.grey[400] : Colors.grey),
                       ),
                       hintText: 'Ваш логин',
-                      hintStyle: GoogleFonts.poppins(color: Colors.grey),
+                      hintStyle: GoogleFonts.poppins(color: hintColor),
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: fieldFillColor,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -121,7 +131,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     boxShadow: _emailFocusNode.hasFocus
                         ? [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
+                              color: Colors.black.withOpacity(isDarkMode ? 0.1 : 0.2),
                               offset: const Offset(0, 4),
                               blurRadius: 8,
                               spreadRadius: 1,
@@ -136,12 +146,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         Icons.email,
                         color: _emailFocusNode.hasFocus
                             ? const Color(0xFF7e61f3)
-                            : Colors.grey,
+                            : (isDarkMode ? Colors.grey[400] : Colors.grey),
                       ),
                       hintText: 'Ваша почта',
-                      hintStyle: GoogleFonts.poppins(color: Colors.grey),
+                      hintStyle: GoogleFonts.poppins(color: hintColor),
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: fieldFillColor,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -161,7 +171,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     boxShadow: _phoneFocusNode.hasFocus
                         ? [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
+                              color: Colors.black.withOpacity(isDarkMode ? 0.1 : 0.2),
                               offset: const Offset(0, 4),
                               blurRadius: 8,
                               spreadRadius: 1,
@@ -176,12 +186,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         Icons.phone,
                         color: _phoneFocusNode.hasFocus
                             ? const Color(0xFF7e61f3)
-                            : Colors.grey,
+                            : (isDarkMode ? Colors.grey[400] : Colors.grey),
                       ),
                       hintText: 'Ваш телефон',
-                      hintStyle: GoogleFonts.poppins(color: Colors.grey),
+                      hintStyle: GoogleFonts.poppins(color: hintColor),
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: fieldFillColor,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -201,7 +211,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     boxShadow: _passwordFocusNode.hasFocus
                         ? [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
+                              color: Colors.black.withOpacity(isDarkMode ? 0.1 : 0.2),
                               offset: const Offset(0, 4),
                               blurRadius: 8,
                               spreadRadius: 1,
@@ -217,14 +227,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         Icons.lock,
                         color: _passwordFocusNode.hasFocus
                             ? const Color(0xFF7e61f3)
-                            : Colors.grey,
+                            : (isDarkMode ? Colors.grey[400] : Colors.grey),
                       ),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _isPasswordVisible
                               ? Icons.visibility
                               : Icons.visibility_off,
-                          color: Colors.grey,
+                          color: _isPasswordVisible
+                              ? const Color(0xFF7e61f3)
+                              : (isDarkMode ? Colors.grey[400] : Colors.grey),
                         ),
                         onPressed: () {
                           setState(() {
@@ -233,9 +245,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         },
                       ),
                       hintText: 'Пароль',
-                      hintStyle: GoogleFonts.poppins(color: Colors.grey),
+                      hintStyle: GoogleFonts.poppins(color: hintColor),
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: fieldFillColor,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -276,14 +288,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     Expanded(
                       child: Container(
                         height: 1,
-                        color: const Color.fromARGB(84, 158, 158, 158),
+                        color: dividerColor,
                         margin: const EdgeInsets.only(right: 10),
                       ),
                     ),
                     Text(
                       'ИЛИ',
                       style: GoogleFonts.poppins(
-                        color: Colors.grey,
+                        color: hintColor,
                         fontWeight: FontWeight.bold,
                       ),
                       textAlign: TextAlign.center,
@@ -291,7 +303,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     Expanded(
                       child: Container(
                         height: 1,
-                        color: const Color.fromARGB(84, 158, 158, 158),
+                        color: dividerColor,
                         margin: const EdgeInsets.only(left: 10),
                       ),
                     ),
@@ -303,26 +315,26 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     IconButton(
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.g_mobiledata,
                         size: 40,
-                        color: Colors.grey,
+                        color: isDarkMode ? Colors.grey[400] : Colors.grey,
                       ),
                       onPressed: () {},
                     ),
                     IconButton(
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.language,
                         size: 40,
-                        color: Colors.grey,
+                        color: isDarkMode ? Colors.grey[400] : Colors.grey,
                       ),
                       onPressed: () {},
                     ),
                     IconButton(
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.telegram,
                         size: 40,
-                        color: Colors.grey,
+                        color: isDarkMode ? Colors.grey[400] : Colors.grey,
                       ),
                       onPressed: () {},
                     ),
@@ -335,7 +347,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   children: [
                     Text(
                       "У вас уже есть аккаунт? ",
-                      style: GoogleFonts.poppins(color: Colors.grey),
+                      style: GoogleFonts.poppins(color: hintColor),
                     ),
                     GestureDetector(
                       onTap: () {

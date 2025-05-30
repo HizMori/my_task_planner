@@ -9,8 +9,11 @@ class WelcomeScreen extends StatefulWidget {
   State<WelcomeScreen> createState() => _WelcomeScreenState();
 }
 
-class _WelcomeScreenState extends State<WelcomeScreen> {
+class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProviderStateMixin {
   int _currentTextIndex = 0;
+  double _dragOffset = 0.0; // Смещение текста при перетаскивании
+  late AnimationController _animationController; // Для анимации возврата
+  late Animation<double> _animation;
 
   // Список текстов
   final List<String> _texts = [
@@ -19,24 +22,66 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     'Планируй свой день с удовольствием!',
   ];
 
-  // Обработка свайпа влево (следующий текст)
-  void _onSwipeLeft() {
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    )..addListener(() {
+        setState(() {
+          _dragOffset = _animation.value;
+        });
+      });
+    _animation = Tween<double>(begin: 0.0, end: 0.0).animate(_animationController);
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  // Обработка перетаскивания
+  void _onDragUpdate(DragUpdateDetails details) {
     setState(() {
-      _currentTextIndex = (_currentTextIndex + 1) % _texts.length;
+      _dragOffset += details.delta.dx / 250.0; // Нормализуем смещение относительно ширины области
     });
   }
 
-  // Обработка свайпа вправо (предыдущий текст)
-  void _onSwipeRight() {
-    setState(() {
-      _currentTextIndex =
-          (_currentTextIndex - 1 + _texts.length) % _texts.length;
-    });
+  // Обработка завершения перетаскивания
+  void _onDragEnd(DragEndDetails details) {
+    // Проверяем, достаточно ли перетащили, чтобы сменить текст
+    if (_dragOffset.abs() > 0.5) {
+      setState(() {
+        if (_dragOffset > 0) {
+          // Перетаскивание вправо (предыдущий текст)
+          _currentTextIndex = (_currentTextIndex - 1 + _texts.length) % _texts.length;
+        } else {
+          // Перетаскивание влево (следующий текст)
+          _currentTextIndex = (_currentTextIndex + 1) % _texts.length;
+        }
+        _dragOffset = 0.0; // Сбрасываем смещение после смены текста
+      });
+    } else {
+      // Возвращаем текст в центр с анимацией
+      _animation = Tween<double>(begin: _dragOffset, end: 0.0).animate(_animationController);
+      _animationController.forward(from: 0.0);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    // Определяем индексы текстов для отображения
+    final int nextTextIndex = (_currentTextIndex + 1) % _texts.length;
+    final int prevTextIndex = (_currentTextIndex - 1 + _texts.length) % _texts.length;
+
+    // Выбираем изображение в зависимости от темы
+    final String imagePath = Theme.of(context).brightness == Brightness.light
+        ? 'assets/images/welcome_image_dark.png'
+        : 'assets/images/welcome_image_light.png';
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -65,55 +110,51 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               ),
               const SizedBox(height: 40),
               Image.asset(
-                'assets/images/welcome_image.png',
+                imagePath,
                 width: 200,
                 height: 200,
                 fit: BoxFit.contain,
               ),
               const SizedBox(height: 20),
-              // GestureDetector для обработки свайпов
+              // GestureDetector для перетаскивания текста
               GestureDetector(
-                onHorizontalDragEnd: (DragEndDetails details) {
-                  // Свайп влево (velocity.x < 0)
-                  if (details.velocity.pixelsPerSecond.dx < 0) {
-                    _onSwipeLeft();
-                  }
-                  // Свайп вправо (velocity.x > 0)
-                  else if (details.velocity.pixelsPerSecond.dx > 0) {
-                    _onSwipeRight();
-                  }
-                },
+                onHorizontalDragUpdate: _onDragUpdate,
+                onHorizontalDragEnd: _onDragEnd,
                 child: Container(
-                  width: 250,
-                  child: SizedBox(
-                    height: 60, // Фиксированная высота для текста
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 500),
-                      transitionBuilder:
-                          (Widget child, Animation<double> animation) {
-                        final offsetAnimation = Tween<Offset>(
-                          begin: const Offset(1.0, 0.0), // Смещение вправо
-                          end: const Offset(0.0, 0.0), // Конечная позиция
-                        ).animate(animation);
-                        final reverseOffsetAnimation = Tween<Offset>(
-                          begin: const Offset(-1.0, 0.0), // Смещение влево
-                          end: const Offset(0.0, 0.0), // Конечная позиция
-                        ).animate(animation);
-                        return ClipRect(
-                          child: SlideTransition(
-                            position: child.key == ValueKey(_currentTextIndex)
-                                ? offsetAnimation
-                                : reverseOffsetAnimation,
-                            child: child,
+                  width: 250, // Фиксированная ширина области
+                  height: 60, // Фиксированная высота области
+                  child: ClipRect(
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Предыдущий текст (слева)
+                        Transform.translate(
+                          offset: Offset((_dragOffset - 1.0) * 250, 0), // Смещение влево
+                          child: Text(
+                            _texts[prevTextIndex],
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyMedium,
                           ),
-                        );
-                      },
-                      child: Text(
-                        _texts[_currentTextIndex],
-                        key: ValueKey(_currentTextIndex),
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyMedium,
-                      ),
+                        ),
+                        // Текущий текст (в центре)
+                        Transform.translate(
+                          offset: Offset(_dragOffset * 250, 0), // Текущее смещение
+                          child: Text(
+                            _texts[_currentTextIndex],
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ),
+                        // Следующий текст (справа)
+                        Transform.translate(
+                          offset: Offset((_dragOffset + 1.0) * 250, 0), // Смещение вправо
+                          child: Text(
+                            _texts[nextTextIndex],
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -129,8 +170,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         Icons.circle,
                         size: 8,
                         color: _currentTextIndex == index
-                            ? const Color(0xFF7e61f3) // Изменён цвет активного индикатора
-                            : Colors.white, // Неактивные индикаторы остаются серыми
+                            ? const Color(0xFF7e61f3)
+                            : Colors.white,
                       ),
                       if (index < _texts.length - 1) const SizedBox(width: 4),
                     ],
@@ -148,7 +189,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   );
                 },
                 style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(320, 49), // Новая ширина и высота
+                  minimumSize: const Size(320, 49),
                 ).merge(Theme.of(context).elevatedButtonTheme.style),
                 child: const Text('Войти'),
               ),
@@ -181,7 +222,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       side: const BorderSide(color: Color(0xFF7e61f3)),
                     ),
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    minimumSize: const Size(320, 49), // Новая ширина и высота
+                    minimumSize: const Size(320, 49),
                     elevation: 0,
                   ),
                   child: const Text('Зарегистрироваться'),
