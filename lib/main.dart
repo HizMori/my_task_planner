@@ -87,7 +87,7 @@ class MyApp extends StatelessWidget {
             ),
           ),
         ),
-        dialogTheme: const DialogThemeData(
+        dialogTheme: DialogThemeData(
           backgroundColor: Color(0xFFeef4ff),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.all(Radius.circular(12)),
@@ -149,7 +149,7 @@ class MyApp extends StatelessWidget {
             ),
           ),
         ),
-        dialogTheme: const DialogThemeData(
+        dialogTheme: DialogThemeData(
           backgroundColor: Color(0xFF1C2526),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.all(Radius.circular(12)),
@@ -221,7 +221,7 @@ class _MainScreenState extends State<MainScreen> {
 
   void _onItemTapped(int index) {
     if (index == 3) {
-      _showMoreMenu(context);
+      // Ничего не делаем, так как PopupMenuButton сам обрабатывает нажатие
     } else {
       setState(() {
         _selectedIndex = index;
@@ -257,38 +257,6 @@ class _MainScreenState extends State<MainScreen> {
       return false;
     }
     return true;
-  }
-
-  void _showMoreMenu(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFFeef4ff),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (BuildContext context) {
-        return ListView.builder(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          itemCount: _moreScreens.length,
-          itemBuilder: (context, index) {
-            final screen = _moreScreens[index];
-            return ListTile(
-              leading: Icon(screen['icon'], color: const Color(0xFF7e61f3)),
-              title: Text(
-                screen['title'],
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                setState(() {
-                  _screenStack.add(screen['screen']);
-                });
-              },
-            );
-          },
-        );
-      },
-    );
   }
 
   void _showCreateOptions(BuildContext context) {
@@ -362,44 +330,35 @@ class _MainScreenState extends State<MainScreen> {
         floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
         bottomNavigationBar: Container(
           decoration: BoxDecoration(
-            // Тень с адаптацией к контуру выреза
             boxShadow: [
-              // Основная тень под панелью
               BoxShadow(
-                color:
-                    theme.brightness == Brightness.light
-                        ? Colors.black.withOpacity(0.04)
-                        : Colors.white.withOpacity(0.04),
+                color: theme.brightness == Brightness.light
+                    ? Colors.black.withOpacity(0.04)
+                    : Colors.white.withOpacity(0.04),
                 offset: const Offset(0, 0),
                 blurRadius: 20,
                 spreadRadius: 0,
               ),
-              // Тень, имитирующая контур выреза (левая часть)
               BoxShadow(
-                color:
-                    theme.brightness == Brightness.light
-                        ? Colors.black.withOpacity(0.04)
-                        : Colors.white.withOpacity(0.04),
-                offset: const Offset(-1, -1), // Смещение влево и вверх
+                color: theme.brightness == Brightness.light
+                    ? Colors.black.withOpacity(0.04)
+                    : Colors.white.withOpacity(0.04),
+                offset: const Offset(-1, -1),
                 blurRadius: 25,
                 spreadRadius: 0,
               ),
-              // Тень, имитирующая контур выреза (правая часть)
               BoxShadow(
-                color:
-                    theme.brightness == Brightness.light
-                        ? Colors.black.withOpacity(0.04)
-                        : Colors.white.withOpacity(0.04),
-                offset: const Offset(2, -2), // Смещение вправо и вверх
+                color: theme.brightness == Brightness.light
+                    ? Colors.black.withOpacity(0.04)
+                    : Colors.white.withOpacity(0.04),
+                offset: const Offset(2, -2),
                 blurRadius: 25,
                 spreadRadius: 0,
               ),
-              // Дополнительная тень для плавности
               BoxShadow(
-                color:
-                    theme.brightness == Brightness.light
-                        ? Colors.black.withOpacity(0.02)
-                        : Colors.white.withOpacity(0.02),
+                color: theme.brightness == Brightness.light
+                    ? Colors.black.withOpacity(0.02)
+                    : Colors.white.withOpacity(0.02),
                 offset: const Offset(0, -3),
                 blurRadius: 40,
                 spreadRadius: 0,
@@ -409,7 +368,7 @@ class _MainScreenState extends State<MainScreen> {
           child: ClipPath(
             clipper: NavBarClipper(),
             child: BottomAppBar(
-              color: theme.scaffoldBackgroundColor, // Фон как у экрана
+              color: theme.scaffoldBackgroundColor,
               shape: const CircularNotchedRectangle(),
               notchMargin: 8.0,
               child: Row(
@@ -418,20 +377,18 @@ class _MainScreenState extends State<MainScreen> {
                   IconButton(
                     icon: Icon(
                       Icons.home,
-                      color:
-                          _selectedIndex == 0
-                              ? const Color(0xFF7e61f3)
-                              : const Color(0xFFB0BEC5),
+                      color: _selectedIndex == 0
+                          ? const Color(0xFF7e61f3)
+                          : const Color(0xFFB0BEC5),
                     ),
                     onPressed: () => _onItemTapped(0),
                   ),
                   IconButton(
                     icon: Icon(
                       Icons.checklist,
-                      color:
-                          _selectedIndex == 1
-                              ? const Color(0xFF7e61f3)
-                              : const Color(0xFFB0BEC5),
+                      color: _selectedIndex == 1
+                          ? const Color(0xFF7e61f3)
+                          : const Color(0xFFB0BEC5),
                     ),
                     onPressed: () => _onItemTapped(1),
                   ),
@@ -439,22 +396,44 @@ class _MainScreenState extends State<MainScreen> {
                   IconButton(
                     icon: Icon(
                       Icons.calendar_today,
-                      color:
-                          _selectedIndex == 2
-                              ? const Color(0xFF7e61f3)
-                              : const Color(0xFFB0BEC5),
+                      color: _selectedIndex == 2
+                          ? const Color(0xFF7e61f3)
+                          : const Color(0xFFB0BEC5),
                     ),
                     onPressed: () => _onItemTapped(2),
                   ),
-                  IconButton(
+                  PopupMenuButton<int>(
+                    onSelected: (index) {
+                      setState(() {
+                        _screenStack.add(_moreScreens[index]['screen']);
+                      });
+                    },
+                    itemBuilder: (context) => _moreScreens.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final screen = entry.value;
+                      return PopupMenuItem<int>(
+                        value: index,
+                        child: Row(
+                          children: [
+                            Icon(
+                              screen['icon'],
+                              color: const Color(0xFF7e61f3),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              screen['title'],
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
                     icon: Icon(
                       Icons.more_horiz,
-                      color:
-                          _selectedIndex == 3
-                              ? const Color(0xFF7e61f3)
-                              : const Color(0xFFB0BEC5),
+                      color: _selectedIndex == 3
+                          ? const Color(0xFF7e61f3)
+                          : const Color(0xFFB0BEC5),
                     ),
-                    onPressed: () => _onItemTapped(3),
                   ),
                 ],
               ),
@@ -471,39 +450,18 @@ class NavBarClipper extends CustomClipper<Path> {
   Path getClip(Size size) {
     final path = Path();
     const notchRadius = 30.0;
-    const cornerRadius = 20.0; // Радиус закругления углов
+    const cornerRadius = 20.0;
     final notchCenter = size.width / 2;
 
-    // Начало пути (левый нижний угол)
     path.moveTo(0, size.height);
-
-    // Линия к левому верхнему углу с закруглением
     path.lineTo(0, cornerRadius);
-    path.quadraticBezierTo(
-      0,
-      0,
-      cornerRadius,
-      0,
-    ); // Закругление левого верхнего угла
-
-    // Линия до начала выреза под FAB
+    path.quadraticBezierTo(0, 0, cornerRadius, 0);
     path.lineTo(notchCenter - notchRadius, 0);
-    path.quadraticBezierTo(notchCenter, 0, notchCenter, notchRadius); // Вырез
+    path.quadraticBezierTo(notchCenter, 0, notchCenter, notchRadius);
     path.quadraticBezierTo(notchCenter, 0, notchCenter + notchRadius, 0);
-
-    // Линия до правого верхнего угла с закруглением
     path.lineTo(size.width - cornerRadius, 0);
-    path.quadraticBezierTo(
-      size.width,
-      0,
-      size.width,
-      cornerRadius,
-    ); // Закругление правого верхнего угла
-
-    // Линия к правому нижнему углу
+    path.quadraticBezierTo(size.width, 0, size.width, cornerRadius);
     path.lineTo(size.width, size.height);
-
-    // Закрываем путь
     path.lineTo(0, size.height);
     path.close();
 
