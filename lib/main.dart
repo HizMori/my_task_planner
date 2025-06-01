@@ -88,10 +88,22 @@ class MyApp extends StatelessWidget {
           ),
         ),
         dialogTheme: DialogThemeData(
-          backgroundColor: Color(0xFFeef4ff),
-          shape: RoundedRectangleBorder(
+          backgroundColor: const Color(0xFFeef4ff),
+          shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.all(Radius.circular(12)),
           ),
+        ),
+        popupMenuTheme: PopupMenuThemeData(
+          color: const Color(0xFFeef4ff),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(12)),
+          ),
+          textStyle: GoogleFonts.poppins(
+            fontSize: 16,
+            color: const Color(0xFF000000),
+            fontWeight: FontWeight.normal,
+          ),
+          elevation: 8,
         ),
         useMaterial3: true,
       ),
@@ -150,10 +162,22 @@ class MyApp extends StatelessWidget {
           ),
         ),
         dialogTheme: DialogThemeData(
-          backgroundColor: Color(0xFF1C2526),
-          shape: RoundedRectangleBorder(
+          backgroundColor: const Color(0xFF1C2526),
+          shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.all(Radius.circular(12)),
           ),
+        ),
+        popupMenuTheme: PopupMenuThemeData(
+          color: const Color(0xFF1C2526),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(12)),
+          ),
+          textStyle: GoogleFonts.poppins(
+            fontSize: 16,
+            color: const Color(0xFFFFFFFF),
+            fontWeight: FontWeight.normal,
+          ),
+          elevation: 8,
         ),
         useMaterial3: true,
       ),
@@ -403,6 +427,7 @@ class _MainScreenState extends State<MainScreen> {
                     onPressed: () => _onItemTapped(2),
                   ),
                   PopupMenuButton<int>(
+                    offset: const Offset(0, -220), // Смещение меню вверх
                     onSelected: (index) {
                       setState(() {
                         _screenStack.add(_moreScreens[index]['screen']);
