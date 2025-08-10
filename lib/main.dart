@@ -18,6 +18,7 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
+  // Метод для определения начального экрана на основе статуса входа и первого запуска
   Future<Widget> _getInitialScreen() async {
     final prefs = await SharedPreferences.getInstance();
     final isFirstLaunch = prefs.getBool('isFirstLaunch') ?? true;
@@ -120,7 +121,7 @@ class MyApp extends StatelessWidget {
           headlineSmall: GoogleFonts.poppins(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: const Color(0xFFFFFFFF),
+            color: const Color(0xFF000000),
           ),
           headlineLarge: GoogleFonts.poppins(
             fontSize: 24,
@@ -174,7 +175,7 @@ class MyApp extends StatelessWidget {
           ),
           textStyle: GoogleFonts.poppins(
             fontSize: 16,
-            color: const Color(0xFFFFFFFF),
+            color: const Color(0xFF000000),
             fontWeight: FontWeight.normal,
           ),
           elevation: 8,
@@ -218,8 +219,9 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> _screenStack = [];
   late List<Widget> _mainScreens;
   OverlayEntry? _overlayEntry;
-  double _rotationAngle = 0.0; // Угол поворота для анимации
+  double _rotationAngle = 0.0; // Угол поворота для анимации (0 - плюс, 0.125 - крестик вправо)
   final List<bool> _isButtonPressed = List.filled(2, false); // Состояние для каждой кнопки в меню
+  bool _isAnimating = false; // Флаг для блокировки анимации во время выполнения
 
   int get screenStackLength => _screenStack.length;
 
@@ -267,6 +269,7 @@ class _MainScreenState extends State<MainScreen> {
         _selectedIndex = index;
         _screenStack.clear();
         _screenStack.add(_mainScreens[_selectedIndex]);
+        _hideCreateMenu(); // Закрываем меню и сбрасываем иконку при переключении экрана
       });
     }
   }
@@ -274,6 +277,7 @@ class _MainScreenState extends State<MainScreen> {
   void pushScreen(Widget screen) {
     setState(() {
       _screenStack.add(screen);
+      _hideCreateMenu(); // Закрываем меню и сбрасываем иконку при переходе на новый экран
     });
     Future.delayed(Duration.zero, () {
       if (_screenStack.length > 1) {
@@ -286,6 +290,7 @@ class _MainScreenState extends State<MainScreen> {
     if (_screenStack.length > 1) {
       setState(() {
         _screenStack.removeLast();
+        _hideCreateMenu(); // Закрываем меню и сбрасываем иконку при возврате назад
       });
       setState(() {});
     }
@@ -300,9 +305,11 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _showCreateMenu(BuildContext context, Offset buttonPosition) {
-    // Сбрасываем состояние нажатия кнопок при открытии меню
+    if (_isAnimating) return; // Игнорируем нажатия во время анимации
     setState(() {
+      _isAnimating = true; // Блокируем новые нажатия
       _isButtonPressed.fillRange(0, _isButtonPressed.length, false);
+      _rotationAngle = 0.125; // Поворачиваем иконку на 45 градусов вправо (плюс → крестик)
     });
 
     // Закрываем предыдущее меню, если оно открыто
@@ -407,14 +414,35 @@ class _MainScreenState extends State<MainScreen> {
 
     try {
       Overlay.of(context).insert(_overlayEntry!);
+      // Снимаем блокировку после завершения анимации
+      Future.delayed(const Duration(milliseconds: 300), () {
+        setState(() {
+          _isAnimating = false;
+        });
+      });
     } catch (e) {
       print('Error inserting OverlayEntry: $e');
+      setState(() {
+        _isAnimating = false;
+      });
     }
   }
 
   void _hideCreateMenu() {
-    _overlayEntry?.remove();
-    _overlayEntry = null;
+    if (_overlayEntry != null) {
+      setState(() {
+        _rotationAngle = 0; // Обнуляем угол
+        _isAnimating = true; // Блокируем новые нажатия
+      });
+      _overlayEntry?.remove();
+      _overlayEntry = null;
+      // Снимаем блокировку после завершения анимации
+      Future.delayed(const Duration(milliseconds: 300), () {
+        setState(() {
+          _isAnimating = false;
+        });
+      });
+    }
   }
 
   @override
@@ -440,24 +468,23 @@ class _MainScreenState extends State<MainScreen> {
         floatingActionButton: Builder(
           builder: (context) => GestureDetector(
             onTap: () {
-              setState(() {
-                _rotationAngle += 0.125; // Увеличиваем угол на 45 градусов
-                final RenderBox button = context.findRenderObject() as RenderBox;
-                if (button != null) {
-                  final Offset buttonPosition = button.localToGlobal(Offset.zero);
-                  if (_overlayEntry == null) {
-                    _showCreateMenu(context, buttonPosition);
-                  } else {
-                    _hideCreateMenu();
-                  }
+              if (_isAnimating) return; // Игнорируем нажатия во время анимации
+              final RenderBox button = context.findRenderObject() as RenderBox;
+              if (button != null) {
+                final Offset buttonPosition = button.localToGlobal(Offset.zero);
+                if (_overlayEntry == null) {
+                  _showCreateMenu(context, buttonPosition);
                 } else {
-                  print('Button render object not found');
+                  _hideCreateMenu();
                 }
-              });
+              } else {
+                print('Button render object not found');
+              }
             },
             child: AnimatedRotation(
-              turns: _rotationAngle, // Анимация на основе накопленного угла
+              turns: _rotationAngle, // Используем угол для анимации
               duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut, // Плавная кривая анимации
               child: FloatingActionButton(
                 onPressed: null, // Отключаем стандартный onPressed
                 backgroundColor: const Color(0xFFf37e61),
@@ -466,7 +493,7 @@ class _MainScreenState extends State<MainScreen> {
                 elevation: 2.0,
                 focusElevation: 4.0,
                 child: Icon(
-                  _overlayEntry == null ? Icons.add : Icons.clear, // Переключение иконки
+                  Icons.add, // Всегда используем иконку плюс, поворот создаёт эффект крестика
                   size: 30,
                 ),
               ),
