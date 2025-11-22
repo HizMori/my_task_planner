@@ -10,8 +10,16 @@ import 'screens/countdowns_screen.dart';
 import 'screens/account_screen.dart';
 import 'screens/create_task_screen.dart';
 import 'screens/welcome_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Supabase.initialize(
+    url: 'https://dlqknakuectcbciqssaz.supabase.co',  // Вставь из Dashboard
+    anonKey: 'sb_publishable_nzc7YWw8V8N6HwDdzQhI6g_o2sjALYS',  // Вставь из Dashboard
+  );
+
   runApp(const MyApp());
 }
 
