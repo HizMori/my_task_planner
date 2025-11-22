@@ -315,13 +315,13 @@ class _MainScreenState extends State<MainScreen> {
     // Закрываем предыдущее меню, если оно открыто
     _hideCreateMenu();
 
-    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final RenderBox? overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     if (overlay == null) {
       print('Overlay not found');
       return;
     }
 
-    final RenderBox button = context.findRenderObject() as RenderBox;
+    final RenderBox? button = context.findRenderObject() as RenderBox;
     if (button == null) {
       print('Button render object not found');
       return;
@@ -469,7 +469,7 @@ class _MainScreenState extends State<MainScreen> {
           builder: (context) => GestureDetector(
             onTap: () {
               if (_isAnimating) return; // Игнорируем нажатия во время анимации
-              final RenderBox button = context.findRenderObject() as RenderBox;
+              final RenderBox? button = context.findRenderObject() as RenderBox;
               if (button != null) {
                 final Offset buttonPosition = button.localToGlobal(Offset.zero);
                 if (_overlayEntry == null) {

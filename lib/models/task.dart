@@ -6,8 +6,8 @@ class Task {
   final String? description; // Описание задачи (может быть пустым)
   final String? dueDate;
   final DateTime? deadline; // Дедлайн задачи (может быть пустым)
-  final String priority; // Приоритет задачи (например, "low", "medium", "high")
-  final String category; // Категория задачи (например, "работа", "личное")
+  final String? priority; // Приоритет задачи (например, "low", "medium", "high")
+  final String? category; // Категория задачи (например, "работа", "личное")
   final bool
   isCompleted; // Статус выполнения задачи (true — выполнена, false — нет)
   final String?
