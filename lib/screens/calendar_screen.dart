@@ -121,7 +121,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             style: theme.textTheme.bodySmall, // Соответствует теме
           ),
           trailing:
-              task.isCompleted
+              task.is_completed
                   ? Icon(
                     Icons.check,
                     color: Colors.green, // Оставим зелёный для завершённых

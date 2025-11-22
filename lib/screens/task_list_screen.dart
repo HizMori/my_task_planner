@@ -12,41 +12,40 @@ class TaskListScreen extends StatefulWidget {
 class _TaskListScreenState extends State<TaskListScreen> {
   final DatabaseService _databaseService =
       DatabaseService.instance; // Создаем экземпляр сервиса базы данных
+  List<Task> _tasks = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTasks();
+  }
+
+  Future<void> _loadTasks() async {
+    final tasks = await _databaseService.readAllTasks();
+    setState(() {
+      _tasks = tasks;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Задачи')),
-      body: FutureBuilder<List<Task>>(
-        future:
-            _databaseService
-                .readAllTasks(), // Асинхронно загружаем список задач
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            ); // Показываем индикатор загрузки
-          } else if (snapshot.hasError) {
-            return Center(
-              child: Text('Ошибка: ${snapshot.error}'),
-            ); // Показываем сообщение об ошибке
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('Нет задач')); // Если задач нет
-          } else {
-            final tasks = snapshot.data!; // Получаем список задач из snapshot
-            return ListView.builder(
-              itemCount: tasks.length, // Количество задач в списке
+      body: _tasks.isEmpty
+          ? const Center(child: Text('Нет задач'))
+          : ListView.builder(
+              itemCount: _tasks.length, // Количество задач в списке
               itemBuilder: (context, index) {
-                final task = tasks[index]; // Получаем задачу по индексу
+                final task = _tasks[index]; // Получаем задачу по индексу
                 return Dismissible(
                   key: Key(
                     task.id.toString(),
                   ), // Уникальный ключ для элемента (нужен для удаления свайпом)
-                  onDismissed: (direction) {
-                    _databaseService.delete(
+                  onDismissed: (direction) async {
+                    await _databaseService.deleteTask(
                       task.id!,
                     ); // Удаляем задачу из базы данных
-                    setState(() {}); // Обновляем экран после удаления
+                    _loadTasks(); // Обновляем список после удаления
                   },
                   background: Container(
                     color: Colors.red,
@@ -55,16 +54,15 @@ class _TaskListScreenState extends State<TaskListScreen> {
                     child: ListTile(
                       title: Text(task.title), // Отображаем название задачи
                       subtitle: Text(
-                        '${task.category} • ${task.priority}',
+                        '${task.category} • ${_getPriorityText(task.priority)}',
                       ), // Отображаем категорию и приоритет
                       trailing: Checkbox(
-                        value: task.isCompleted, // Текущий статус выполнения
-                        onChanged: (value) {
-                          setState(() {
-                            _databaseService.update(
-                              task.copyWith(isCompleted: value),
-                            ); // Обновляем статус задачи
-                          });
+                        value: task.is_completed, // Текущий статус выполнения
+                        onChanged: (value) async {
+                          await _databaseService.updateTask(
+                            task.copyWith(is_completed: value),
+                          ); // Обновляем статус задачи
+                          _loadTasks(); // Обновляем список
                         },
                       ),
                       onTap: () {
@@ -74,10 +72,27 @@ class _TaskListScreenState extends State<TaskListScreen> {
                   ),
                 );
               },
-            );
-          }
+            ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          // Добавьте навигацию к экрану создания задачи
+          // Например: Navigator.push(context, MaterialPageRoute(builder: (context) => CreateTaskScreen()));
         },
+        child: const Icon(Icons.add),
       ),
     );
+  }
+
+  String _getPriorityText(String? priority) {
+    switch (priority) {
+      case 'low':
+        return 'Низкий';
+      case 'medium':
+        return 'Средний';
+      case 'high':
+        return 'Высокий';
+      default:
+        return 'Не указан';
+    }
   }
 }

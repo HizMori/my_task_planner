@@ -17,6 +17,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   DateTime? _deadline;
   String _priority = 'medium';
   String _category = 'работа';
+  final String _creatorId = 'current_user'; // Добавьте реальный ID пользователя
   final DatabaseService _databaseService = DatabaseService.instance;
 
   // Ключи для получения позиции контейнеров
@@ -382,15 +383,21 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                 onPressed: () async {
                   if (_formKey.currentState!.validate()) {
                     _formKey.currentState!.save();
+                    final now = DateTime.now(); // Текущее время
                     final task = Task(
                       title: _title,
                       description: _description,
                       deadline: _deadline,
                       priority: _priority,
                       category: _category,
+                      creatorId: _creatorId,
+                      createdAt: now, // Устанавливаем текущее время
+                      updatedAt: now, // Устанавливаем текущее время
                     );
-                    await _databaseService.create(task);
-                    MainScreen.of(context)?.popScreen();
+                    await _databaseService.createTask(task);
+                    if (context.mounted) {
+                      MainScreen.of(context)?.popScreen();
+                    }
                   }
                 },
                 child: const Text('Сохранить'),

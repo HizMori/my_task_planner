@@ -1,3 +1,4 @@
+/*
 import 'package:flutter/material.dart';
 import '../models/note.dart';
 import '../services/database_service.dart';
@@ -120,3 +121,4 @@ class _CreateNoteScreenState extends State<CreateNoteScreen> {
     return months[month - 1];
   }
 }
+*/

@@ -1,137 +1,278 @@
-import 'package:sqflite/sqflite.dart'; // Пакет для работы с SQLite
-import 'package:path/path.dart'; // Пакет для работы с путями
-import '../models/task.dart'; // Импортируем модель задачи
-import '../models/note.dart'; // Импортируем модель заметки
+import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart';
+import '../models/task.dart';
+import '../models/user.dart';
+import '../models/group.dart';
+import '../models/group_member.dart';
+import '../models/message.dart';
+import '../models/app_settings.dart';
 
 class DatabaseService {
-  static final DatabaseService instance =
-      DatabaseService._init(); // Создаем singleton экземпляр сервиса
-  static Database? _database; // Приватная переменная для хранения базы данных
+  static final DatabaseService instance = DatabaseService._init();
+  static Database? _database;
 
-  DatabaseService._init(); // Приватный конструктор для singleton
+  DatabaseService._init();
 
-  // Геттер для получения базы данных
   Future<Database> get database async {
-    if (_database != null)
-      return _database!; // Если база уже инициализирована, возвращаем её
-    _database = await _initDB(
-      'tasks.db',
-    ); // Инициализируем базу, если она ещё не создана
+    if (_database != null) return _database!;
+    await deleteDB();  // Удаляем БД при каждом запуске (для теста, стирает все данные)
+    _database = await _initDB('planner.db');
     return _database!;
   }
 
-  // Метод для инициализации базы данных
+  // Инициализация БД (создаёт новую БД)
   Future<Database> _initDB(String filePath) async {
-    final dbPath =
-        await getDatabasesPath(); // Получаем путь к директории базы данных
-    final path = join(
-      dbPath,
-      filePath,
-    ); // Формируем полный путь к файлу базы данных
+    final dbPath = await getDatabasesPath();
+    final path = join(dbPath, filePath);
     return await openDatabase(
       path,
-      version: 1,
+      version: 1,  // Версия 1, без миграции
       onCreate: _createDB,
-    ); // Открываем или создаем базу
+    );
   }
 
-  // Метод для создания таблицы задач при первом запуске
+  // Создание таблиц (выполняется при первой установке или после удаления)
   Future _createDB(Database db, int version) async {
+    // Таблица задач (расширенная)
     await db.execute('''
       CREATE TABLE tasks (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, 
-        title TEXT NOT NULL, 
-        description TEXT, 
-        dueDate TEXT,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        description TEXT,
+        due_date TEXT,
         deadline TEXT, 
-        priority TEXT NOT NULL, 
-        category TEXT NOT NULL, 
-        isCompleted INTEGER NOT NULL, 
-        assignedTo TEXT 
+        priority TEXT NOT NULL,
+        category TEXT NOT NULL,
+        is_completed INTEGER NOT NULL DEFAULT 0,
+        assigned_to TEXT,
+        group_id TEXT,
+        creator_id TEXT,
+        created_at TEXT,
+        updated_at TEXT
       )
     ''');
+
+    // Таблица пользователей/контактов
     await db.execute('''
-          CREATE TABLE notes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            content TEXT NOT NULL,
-            createdAt TEXT NOT NULL
-          )
-        ''');
+      CREATE TABLE users (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT,
+        avatar_url TEXT,
+        created_at TEXT
+      )
+    ''');
+
+    // Таблица групп
+    await db.execute('''
+      CREATE TABLE groups (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        creator_id TEXT,
+        created_at TEXT
+      )
+    ''');
+
+    // Участники групп
+    await db.execute('''
+      CREATE TABLE group_members (
+        group_id TEXT,
+        user_id TEXT,
+        joined_at TEXT,
+        PRIMARY KEY (group_id, user_id)
+      )
+    ''');
+
+    // Сообщения чата
+    await db.execute('''
+      CREATE TABLE messages (
+        id TEXT PRIMARY KEY,
+        group_id TEXT,
+        sender_id TEXT,
+        content TEXT NOT NULL,
+        sent_at TEXT
+      )
+    ''');
+
+    // Настройки приложения
+    await db.execute('''
+      CREATE TABLE app_settings (
+        user_id TEXT PRIMARY KEY,
+        theme TEXT DEFAULT 'system',
+        notifications_enabled INTEGER DEFAULT 1,
+        reminder_time INTEGER DEFAULT 15
+      )
+    ''');
   }
 
-  // Метод для создания новой задачи
-  Future<Task> create(Task task) async {
-    final db = await instance.database; // Получаем доступ к базе данных
-    final id = await db.insert(
-      'tasks',
-      task.toMap(),
-    ); // Вставляем задачу и получаем её ID
-    return task.copyWith(id: id); // Возвращаем задачу с присвоенным ID
+  // Метод для удаления БД (стирает все данные при каждом запуске)
+  Future<void> deleteDB() async {
+    final dbPath = await getDatabasesPath();
+    final path = join(dbPath, 'planner.db');
+    await deleteDatabase(path);
   }
 
-  // Метод для чтения всех задач
+  // CRUD для задач
+  Future<Task> createTask(Task task) async {
+    final db = await database;
+    final id = await db.insert('tasks', task.toMap());
+    return task.copyWith(id: id);
+  }
+
   Future<List<Task>> readAllTasks() async {
-    final db = await instance.database; // Получаем доступ к базе данных
-    final result = await db.query(
-      'tasks',
-    ); // Запрашиваем все записи из таблицы tasks
-    return result
-        .map((json) => Task.fromMap(json))
-        .toList(); // Преобразуем результат в список задач
-  }
-
-  // Метод для обновления задачи
-  Future<int> update(Task task) async {
-    final db = await instance.database; // Получаем доступ к базе данных
-    return db.update(
-      'tasks', // Таблица для обновления
-      task.toMap(), // Данные для обновления
-      where: 'id = ?', // Условие — обновляем задачу с конкретным ID
-      whereArgs: [task.id], // Аргумент для условия
-    );
-  }
-
-  // Метод для удаления задачи
-  Future<int> delete(int id) async {
-    final db = await instance.database; // Получаем доступ к базе данных
-    return await db.delete(
-      'tasks', // Таблица для удаления
-      where: 'id = ?', // Условие — удаляем задачу с конкретным ID
-      whereArgs: [id], // Аргумент для условия
-    );
-  }
-
-  // Новые методы для заметок
-  Future<int> createNote(Note note) async {
     final db = await database;
-    return await db.insert('notes', note.toMap());
+    final result = await db.query('tasks');
+    return result.map((map) => Task.fromMap(map)).toList();
   }
 
-  Future<List<Note>> readAllNotes() async {
-    final db = await database;
-    final result = await db.query('notes');
-    return result.map((map) => Note.fromMap(map)).toList();
-  }
-
-  Future<int> updateNote(Note note) async {
+  Future<int> updateTask(Task task) async {
     final db = await database;
     return await db.update(
-      'notes',
-      note.toMap(),
+      'tasks',
+      task.toMap(),
       where: 'id = ?',
-      whereArgs: [note.id],
+      whereArgs: [task.id],
     );
   }
 
-  Future<int> deleteNote(int id) async {
+  Future<int> deleteTask(int id) async {
     final db = await database;
-    return await db.delete('notes', where: 'id = ?', whereArgs: [id]);
+    return await db.delete('tasks', where: 'id = ?', whereArgs: [id]);
   }
 
-  // Метод для закрытия базы данных
-  Future<void> close() async {
-    final db = await instance.database; // Получаем доступ к базе данных
-    db.close(); // Закрываем соединение с базой
+  // CRUD для пользователей
+  Future<User> createUser(User user) async {
+    final db = await database;
+    await db.insert('users', user.toMap());
+    return user;
+  }
+
+  Future<List<User>> readAllUsers() async {
+    final db = await database;
+    final result = await db.query('users');
+    return result.map((map) => User.fromMap(map)).toList();
+  }
+
+  Future<int> updateUser(User user) async {
+    final db = await database;
+    return await db.update(
+      'users',
+      user.toMap(),
+      where: 'id = ?',
+      whereArgs: [user.id],
+    );
+  }
+
+  Future<int> deleteUser(int id) async {
+    final db = await database;
+    return await db.delete('users', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // CRUD для групп
+  Future<Group> createGroup(Group group) async {
+    final db = await database;
+    await db.insert('groups', group.toMap());
+    return group;
+  }
+
+  Future<List<Group>> readAllGroups() async {
+    final db = await database;
+    final result = await db.query('groups');
+    return result.map((map) => Group.fromMap(map)).toList();
+  }
+
+  Future<int> updateGroup(Group group) async {
+    final db = await database;
+    return await db.update(
+      'groups',
+      group.toMap(),
+      where: 'id = ?',
+      whereArgs: [group.id],
+    );
+  }
+
+  Future<int> deleteGroup(int id) async {
+    final db = await database;
+    return await db.delete('groups', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // CRUD для участников групп
+  Future<GroupMember> createGroupMember(GroupMember member) async {
+    final db = await database;
+    await db.insert('group_members', member.toMap());
+    return member;
+  }
+
+  Future<List<GroupMember>> readGroupMembers(int groupId) async {
+    final db = await database;
+    final result = await db.query('group_members', where: 'group_id = ?', whereArgs: [groupId]);
+    return result.map((map) => GroupMember.fromMap(map)).toList();
+  }
+
+  Future<int> deleteGroupMember(int groupId, int userId) async {
+    final db = await database;
+    return await db.delete('group_members', where: 'group_id = ? AND user_id = ?', whereArgs: [groupId, userId]);
+  }
+
+  // CRUD для сообщений
+  Future<Message> createMessage(Message message) async {
+    final db = await database;
+    await db.insert('messages', message.toMap());
+    return message;
+  }
+
+  Future<List<Message>> readMessagesForGroup(int groupId) async {
+    final db = await database;
+    final result = await db.query('messages', where: 'group_id = ?', whereArgs: [groupId]);
+    return result.map((map) => Message.fromMap(map)).toList();
+  }
+
+  Future<int> updateMessage(Message message) async {
+    final db = await database;
+    return await db.update(
+      'messages',
+      message.toMap(),
+      where: 'id = ?',
+      whereArgs: [message.id],
+    );
+  }
+
+  Future<int> deleteMessage(int id) async {
+    final db = await database;
+    return await db.delete('messages', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // CRUD для настроек
+  Future<AppSettings> createAppSettings(AppSettings settings) async {
+    final db = await database;
+    await db.insert('app_settings', settings.toMap());
+    return settings;
+  }
+
+  Future<AppSettings?> readAppSettings(int userId) async {
+    final db = await database;
+    final result = await db.query('app_settings', where: 'user_id = ?', whereArgs: [userId]);
+    if (result.isEmpty) return null;
+    return AppSettings.fromMap(result.first);
+  }
+
+  Future<int> updateAppSettings(AppSettings settings) async {
+    final db = await database;
+    return await db.update(
+      'app_settings',
+      settings.toMap(),
+      where: 'user_id = ?',
+      whereArgs: [settings.userId],
+    );
+  }
+
+  Future<int> deleteAppSettings(int userId) async {
+    final db = await database;
+    return await db.delete('app_settings', where: 'user_id = ?', whereArgs: [userId]);
+  }
+
+  Future close() async {
+    final db = await database;
+    await db.close();
   }
 }

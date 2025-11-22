@@ -102,11 +102,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                             trailing: Checkbox(
-                              value: task.isCompleted,
+                              value: task.is_completed,
                               onChanged: (value) {
                                 setState(() {
-                                  _databaseService.update(
-                                    task.copyWith(isCompleted: value),
+                                  _databaseService.updateTask(
+                                    task.copyWith(is_completed: value),
                                   );
                                 });
                               },
