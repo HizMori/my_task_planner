@@ -1,16 +1,20 @@
 class User {
-  final String id;
+  final int? id;
   final String name;
   final String? email;
+  final String? telephone;
+  final String? password;
   final String? avatarUrl;
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? lastSyncAt;
 
   User({
-    required this.id,
+    this.id,
     required this.name,
     this.email,
+    this.telephone,
+    this.password,
     this.avatarUrl,
     required this.createdAt,
     required this.updatedAt,
@@ -22,6 +26,8 @@ class User {
       'id': id,
       'name': name,
       'email': email,
+      'telephone': telephone,
+      'password': password,
       'avatar_url': avatarUrl,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
@@ -34,6 +40,8 @@ class User {
       id: map['id'],
       name: map['name'],
       email: map['email'],
+      telephone: map['telephone'],
+      password: map['password'],
       avatarUrl: map['avatar_url'],
       createdAt: DateTime.parse(map['created_at']),
       updatedAt: DateTime.parse(map['updated_at']),
@@ -42,9 +50,11 @@ class User {
   }
 
   User copyWith({
-    String? id, 
+    int? id, 
     String? name, 
     String? email,
+    String? telephone,
+    String? password,
     String? avatarUrl, 
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -54,6 +64,8 @@ class User {
       id: id ?? this.id,
       name: name ?? this.name,
       email: email ?? this.email,
+      telephone: telephone ?? this.telephone,
+      password: password ?? this.password,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
