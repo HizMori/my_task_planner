@@ -73,13 +73,6 @@ class _TaskListScreenState extends State<TaskListScreen> {
                 );
               },
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // Добавьте навигацию к экрану создания задачи
-          // Например: Navigator.push(context, MaterialPageRoute(builder: (context) => CreateTaskScreen()));
-        },
-        child: const Icon(Icons.add),
-      ),
     );
   }
 

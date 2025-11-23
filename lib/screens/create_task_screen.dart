@@ -393,6 +393,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                       creatorId: _creatorId,
                       createdAt: now, // Устанавливаем текущее время
                       updatedAt: now, // Устанавливаем текущее время
+                      last_sync_at: null,
                     );
                     await _databaseService.createTask(task);
                     if (context.mounted) {

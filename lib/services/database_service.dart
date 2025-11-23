@@ -15,7 +15,7 @@ class DatabaseService {
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    await deleteDB();  // Удаляем БД при каждом запуске (для теста, стирает все данные)
+    await deleteDB();  // Удаляем БД при каждом запуске (стирает все данные)
     _database = await _initDB('planner.db');
     return _database!;
   }
@@ -48,7 +48,8 @@ class DatabaseService {
         group_id TEXT,
         creator_id TEXT,
         created_at TEXT,
-        updated_at TEXT
+        updated_at TEXT,
+        last_sync_at TEXT
       )
     ''');
 
@@ -58,8 +59,12 @@ class DatabaseService {
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         email TEXT,
+        telephone TEXT,
+        password TEXT,
         avatar_url TEXT,
-        created_at TEXT
+        created_at TEXT,
+        updated_at TEXT,
+        last_sync_at TEXT
       )
     ''');
 
@@ -69,7 +74,9 @@ class DatabaseService {
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         creator_id TEXT,
-        created_at TEXT
+        created_at TEXT,
+        updated_at TEXT,
+        last_sync_at TEXT
       )
     ''');
 
@@ -79,6 +86,8 @@ class DatabaseService {
         group_id TEXT,
         user_id TEXT,
         joined_at TEXT,
+        updated_at TEXT,
+        last_sync_at TEXT,
         PRIMARY KEY (group_id, user_id)
       )
     ''');
@@ -100,7 +109,10 @@ class DatabaseService {
         user_id TEXT PRIMARY KEY,
         theme TEXT DEFAULT 'system',
         notifications_enabled INTEGER DEFAULT 1,
-        reminder_time INTEGER DEFAULT 15
+        reminder_time INTEGER DEFAULT 15,
+        created_at TEXT,
+        updated_at TEXT,
+        last_sync_at TEXT
       )
     ''');
   }
@@ -145,6 +157,13 @@ class DatabaseService {
     final db = await database;
     await db.insert('users', user.toMap());
     return user;
+  }
+
+  Future<User?> readUserById(int id) async {
+    final db = await database;
+    final result = await db.query('users', where: 'id = ?', whereArgs: [id]);
+    if (result.isEmpty) return null;
+    return User.fromMap(result.first);
   }
 
   Future<List<User>> readAllUsers() async {

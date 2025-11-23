@@ -13,7 +13,8 @@ class Task {
   final String creatorId;  // ID создателя
   final DateTime? createdAt;
   final DateTime? updatedAt;
-  
+  final DateTime? last_sync_at;
+
   Task({
     this.id, // ID задачи
     required this.title, // Обязательное поле — название
@@ -28,12 +29,13 @@ class Task {
     required this.creatorId,
     required this.createdAt,
     required this.updatedAt,
+    this.last_sync_at,
   });
 
   // Метод для преобразования задачи в Map (нужен для сохранения в базу данных)
   Map<String, dynamic> toMap() {
     return {
-      'id': id, // ID задачи
+      'id': id,
       'title': title, // Название
       'description': description, // Описание
       'deadline': deadline?.toIso8601String(), // Преобразуем дату в строку формата ISO8601
@@ -45,6 +47,7 @@ class Task {
       'creator_id': creatorId,
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
+      'last_sync_at': last_sync_at?.toIso8601String(),
     };
   }
 
@@ -63,6 +66,7 @@ class Task {
     creatorId: map['creator_id'],
     createdAt: map['created_at'] != null ? DateTime.parse(map['created_at']) : null,
     updatedAt: map['updated_at'] != null ? DateTime.parse(map['updated_at']) : null,
+    last_sync_at: map['last_sync_at'] != null ? DateTime.parse(map['last_sync_at']) : null,
   );
 }
 
@@ -84,7 +88,8 @@ class Task {
     String? groupId, 
     String? creatorId, 
     DateTime? createdAt, 
-    DateTime? updatedAt
+    DateTime? updatedAt,
+    DateTime? last_sync_at,
   }) {
     return Task(
       id: id ?? this.id, // Используем новое значение или старое, если новое null
@@ -99,6 +104,7 @@ class Task {
       creatorId: creatorId ?? this.creatorId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      last_sync_at: last_sync_at ?? this.last_sync_at,
     );
   }
 }
