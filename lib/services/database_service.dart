@@ -26,17 +26,28 @@ class DatabaseService {
     final path = join(dbPath, filePath);
     return await openDatabase(
       path,
-      version: 1,  // Версия 1, без миграции
+      version: 1,  // Увеличили версию для миграции (добавили supabase_user_id)
       onCreate: _createDB,
+      // onUpgrade: _upgradeDB,
     );
   }
+
+  // Миграция БД (для добавления новых полей)
+  /*
+  Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Добавляем supabase_user_id в users
+      await db.execute('ALTER TABLE users ADD COLUMN supabase_user_id TEXT;');
+    }
+  }
+  */
 
   // Создание таблиц (выполняется при первой установке или после удаления)
   Future _createDB(Database db, int version) async {
     // Таблица задач (расширенная)
     await db.execute('''
       CREATE TABLE tasks (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id TEXT PRIMARY KEY ,
         title TEXT NOT NULL,
         description TEXT,
         due_date TEXT,
@@ -60,7 +71,6 @@ class DatabaseService {
         name TEXT NOT NULL,
         email TEXT,
         telephone TEXT,
-        password TEXT,
         avatar_url TEXT,
         created_at TEXT,
         updated_at TEXT,
@@ -117,11 +127,30 @@ class DatabaseService {
     ''');
   }
 
-  // Метод для удаления БД (стирает все данные при каждом запуске)
+  // Метод для удаления БД (стирает все данные при каждом запуске, для тестов)
   Future<void> deleteDB() async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'planner.db');
     await deleteDatabase(path);
+  }
+
+  // Новый метод: Синхронизация пользователя из Supabase в локальную БД
+  Future<void> syncUserFromSupabase(Map<String, dynamic> supabaseUserData) async {
+    final db = await database;
+    await db.insert(
+      'users',
+      {
+        'id': supabaseUserData['id'],
+        'name': supabaseUserData['name'],
+        'email': supabaseUserData['email'],
+        'telephone': supabaseUserData['telephone'],
+        'avatar_url': supabaseUserData['avatar_url'],
+        'created_at': supabaseUserData['created_at'],
+        'updated_at': supabaseUserData['updated_at'],
+        'last_sync_at': DateTime.now().toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,  // Обновляет, если существует
+    );
   }
 
   // CRUD для задач
@@ -159,9 +188,16 @@ class DatabaseService {
     return user;
   }
 
-  Future<User?> readUserById(int id) async {
+  Future<User?> readUserById(String id) async {
     final db = await database;
     final result = await db.query('users', where: 'id = ?', whereArgs: [id]);
+    if (result.isEmpty) return null;
+    return User.fromMap(result.first);
+  }
+
+  Future<User?> readUserBySupabaseId(String supabaseId) async {  // Новый метод для поиска по supabase_user_id
+    final db = await database;
+    final result = await db.query('users', where: 'supabase_user_id = ?', whereArgs: [supabaseId]);
     if (result.isEmpty) return null;
     return User.fromMap(result.first);
   }
@@ -182,7 +218,7 @@ class DatabaseService {
     );
   }
 
-  Future<int> deleteUser(int id) async {
+  Future<int> deleteUser(String id) async {
     final db = await database;
     return await db.delete('users', where: 'id = ?', whereArgs: [id]);
   }

@@ -12,7 +12,7 @@ import 'screens/create_task_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Supabase.initialize(

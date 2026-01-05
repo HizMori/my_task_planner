@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../main.dart';
 import 'signup_screen.dart';
+import '../services/database_service.dart'; // Локальная БД
+import '../services/auth_service.dart'; // Auth сервис
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -12,6 +14,11 @@ class SignInScreen extends StatefulWidget {
 }
 
 class _SignInScreenState extends State<SignInScreen> {
+  
+  // Controllers для полей
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  
   // Состояние видимости пароля
   bool _isPasswordVisible = false;
   // Состояние переключателя "Запомнить меня"
@@ -30,22 +37,92 @@ class _SignInScreenState extends State<SignInScreen> {
 
   @override
   void dispose() {
-    // Очищаем FocusNode
+    // Очищаем controllers и FocusNode
+    _emailController.dispose();
+    _passwordController.dispose();
     _emailFocusNode.dispose();
     _passwordFocusNode.dispose();
     super.dispose();
   }
 
-  // Метод для установки состояния входа и перехода на MainScreen
-  Future<void> _handleLogin(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isLoggedIn', true);
-    await prefs.setBool('isFirstLaunch', false);
+  // Валидация полей
+  bool _validateFields() {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    print('Email: "$email", Password: "$password"');
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const MainScreen()),
-    );
+    if (email.isEmpty || password.isEmpty) {
+      _showSnackBar('Все поля обязательны для заполнения');
+      return false;
+    }
+
+    // Валидация email (regex)
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    if (!emailRegex.hasMatch(email)) {
+      _showSnackBar('Неверный формат email');
+      return false;
+    }
+
+    return true;
+  }
+
+  // Метод для установки состояния входа и перехода на MainScreen
+  Future<void> _handleLogin() async {
+    if (!_validateFields()) return;
+
+    final supabase = Supabase.instance.client;
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    try {
+      // Вход в Supabase Auth
+      final authResponse = await supabase.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+
+      // Если session null — ошибка (для signIn session должен быть)
+      if (authResponse.session == null) {
+        _showSnackBar('Ошибка входа: сессия не создана');
+        return;
+      }
+
+      // Сохраняем токен (если "Запомнить меня" — всегда сохраняем для простоты)
+      if (_isRememberMe) {
+        await AuthService.instance.saveToken(authResponse.session!.accessToken);
+      }
+
+      // Fetch пользователя из Supabase по supabase_user_id
+      final userResponse = await supabase
+          .from('users')
+          .select()
+          .eq('id', authResponse.user!.id)
+          .single();  // Ожидаем одну запись
+
+      if (userResponse.isEmpty) {
+        _showSnackBar('Пользователь не найден');
+        return;
+      }
+
+      // Синхронизируем в локальную БД
+      await DatabaseService.instance.syncUserFromSupabase(userResponse);
+
+      // Сохраняем current_user_id (ID из users)
+      await AuthService.instance.saveCurrentUserId(userResponse['id']);
+
+      // Переходим на MainScreen
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const MainScreen()),
+      );
+    } catch (e) {
+      _showSnackBar('Ошибка: $e');
+    }
+  }
+
+  // Показ SnackBar
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -117,6 +194,7 @@ class _SignInScreenState extends State<SignInScreen> {
                           : null,
                     ),
                     child: TextFormField(
+                      controller: _emailController,
                       focusNode: _emailFocusNode,
                       decoration: InputDecoration(
                         prefixIcon: Icon(
@@ -157,6 +235,7 @@ class _SignInScreenState extends State<SignInScreen> {
                           : null,
                     ),
                     child: TextFormField(
+                      controller: _passwordController,
                       focusNode: _passwordFocusNode,
                       obscureText: !_isPasswordVisible,
                       decoration: InputDecoration(
@@ -251,7 +330,7 @@ class _SignInScreenState extends State<SignInScreen> {
                   const SizedBox(height: 20),
                   // Кнопка Sign in
                   ElevatedButton(
-                    onPressed: () => _handleLogin(context),
+                    onPressed: _handleLogin,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF7e61f3),
                       foregroundColor: Colors.white,

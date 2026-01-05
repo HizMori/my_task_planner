@@ -1,20 +1,18 @@
 class User {
-  final int? id;
+  final String id;  // Изменено на String для UUID
   final String name;
   final String? email;
   final String? telephone;
-  final String? password;
   final String? avatarUrl;
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? lastSyncAt;
 
   User({
-    this.id,
+    required this.id,
     required this.name,
     this.email,
     this.telephone,
-    this.password,
     this.avatarUrl,
     required this.createdAt,
     required this.updatedAt,
@@ -27,7 +25,6 @@ class User {
       'name': name,
       'email': email,
       'telephone': telephone,
-      'password': password,
       'avatar_url': avatarUrl,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
@@ -41,7 +38,6 @@ class User {
       name: map['name'],
       email: map['email'],
       telephone: map['telephone'],
-      password: map['password'],
       avatarUrl: map['avatar_url'],
       createdAt: DateTime.parse(map['created_at']),
       updatedAt: DateTime.parse(map['updated_at']),
@@ -50,11 +46,10 @@ class User {
   }
 
   User copyWith({
-    int? id, 
+    String? id,
     String? name, 
     String? email,
     String? telephone,
-    String? password,
     String? avatarUrl, 
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -65,7 +60,6 @@ class User {
       name: name ?? this.name,
       email: email ?? this.email,
       telephone: telephone ?? this.telephone,
-      password: password ?? this.password,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
