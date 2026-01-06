@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/task.dart';
 import '../services/database_service.dart';
+import '../models/user.dart'; // Модель
+import '../services/auth_service.dart'; // Для logout
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -10,6 +12,9 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  User? _user;
+  bool _isLoading = true;
+  
   final DatabaseService _databaseService = DatabaseService.instance;
 
   String _getGreeting() {
@@ -24,8 +29,45 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  // Загрузка данных пользователя
+  Future<void> _loadUser() async {
+    final userId = await AuthService.instance.getCurrentUserId();
+    if (userId == null) {
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+
+    final user = await DatabaseService.instance.readUserById(userId);
+    setState(() {
+      _user = user;
+      _isLoading = false;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: Text('Главное')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_user == null) {
+      return Scaffold(
+        appBar: AppBar(title: Text('Главное')),
+        body: const Center(child: Text('Пользователь не найден')),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(title: Text('Главное')),
@@ -36,7 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             // Приветствие
             Text(
-              '${_getGreeting()}, Kawai Fukuro!',
+              '${_getGreeting()}, ${_user!.name}!',
               style: theme.textTheme.headlineLarge,
             ),
             const SizedBox(height: 16),

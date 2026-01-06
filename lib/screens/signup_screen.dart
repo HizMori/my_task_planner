@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'sign_in_screen.dart'; // Импорт экрана входа
-import '../main.dart'; // Для перехода на MainScreen
 import '../services/auth_service.dart'; //сохранения токена (проверка входа)
 import '../services/database_service.dart'; //для лок БД
 

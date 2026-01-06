@@ -6,6 +6,7 @@ import '../models/group.dart';
 import '../models/group_member.dart';
 import '../models/message.dart';
 import '../models/app_settings.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 
 class DatabaseService {
   static final DatabaseService instance = DatabaseService._init();
@@ -30,6 +31,32 @@ class DatabaseService {
       onCreate: _createDB,
       // onUpgrade: _upgradeDB,
     );
+  }
+
+  Future<List<User>> searchLocalContacts(String query) async {
+    final db = await database;
+    final result = await db.query(
+      'users',
+      where: 'name LIKE ?',
+      whereArgs: ['%$query%'],
+    );
+    return result.map((map) => User.fromMap(map)).toList();
+  }
+
+  Future<List<User>> searchGlobalUsers(String query) async {
+    final supabase = Supabase.instance.client;
+    try {
+      final response = await supabase
+          .from('users')
+          .select('id, name, email, telephone, avatar_url, created_at, updated_at, last_sync_at')
+          .ilike('name', '%$query%')
+          .limit(10);
+
+      return response.map((map) => User.fromMap(map)).toList();
+    } catch (e) {
+      print('Ошибка поиска пользователя: $e');
+      return [];
+    }
   }
 
   // Миграция БД (для добавления новых полей)
