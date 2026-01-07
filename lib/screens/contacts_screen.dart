@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import '../models/user.dart';
-import '../services/database_service.dart';
+import '../services/contacts_repository.dart';
 import 'search_contacts_screen.dart';
 
 class ContactsScreen extends StatefulWidget {
@@ -12,7 +12,7 @@ class ContactsScreen extends StatefulWidget {
 }
 
 class _ContactsScreenState extends State<ContactsScreen> {
-  final DatabaseService _db = DatabaseService.instance;
+  final ContactsRepository _contactsRepo = ContactsRepository.instance;
   final TextEditingController _searchController = TextEditingController();
   List<User> _contacts = [];
   bool _isLoading = false;
@@ -20,26 +20,26 @@ class _ContactsScreenState extends State<ContactsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadAllContacts();
+    _loadContacts();
   }
 
-  Future<void> _loadAllContacts() async {
+  Future<void> _loadContacts() async {
     setState(() {
       _isLoading = true;
     });
-    final allContacts = await _db.readAllUsers();
+    final contacts = await _contactsRepo.getAllContacts();
     setState(() {
-      _contacts = allContacts;
+      _contacts = contacts;
       _isLoading = false;
     });
   }
 
   Future<void> _searchContacts(String query) async {
     if (query.isEmpty) {
-      _loadAllContacts();
+      _loadContacts();
       return;
     }
-    final results = await _db.searchLocalContacts(query);
+    final results = await _contactsRepo.searchContacts(query);
     setState(() {
       _contacts = results;
     });
@@ -79,7 +79,6 @@ class _ContactsScreenState extends State<ContactsScreen> {
                     builder: (context) => const SearchContactsScreen(),
                   ),
                 ).then((_) {
-                  // После возврата — обновим список контактов
                   _searchContacts(_searchController.text);
                 });
               },
@@ -106,8 +105,8 @@ class _ContactsScreenState extends State<ContactsScreen> {
                         itemBuilder: (context, index) {
                           final user = _contacts[index];
                           return Dismissible(
-                            key: Key(user.id), // Ключ по id — обязателен
-                            direction: DismissDirection.startToEnd, // Свайп влево (с права налево)
+                            key: Key(user.id),
+                            direction: DismissDirection.startToEnd,
                             background: Container(
                               alignment: Alignment.centerLeft,
                               padding: const EdgeInsets.only(left: 20),
@@ -119,23 +118,18 @@ class _ContactsScreenState extends State<ContactsScreen> {
                               child: const Icon(Icons.delete, color: Colors.white),
                             ),
                             onDismissed: (direction) async {
-                              // Удаляем из локальной БД
-                              await _db.deleteUser(user.id);
-
-                              // Удаляем из списка
+                              await _contactsRepo.removeContact(user.id);
                               setState(() {
                                 _contacts.removeAt(index);
                               });
 
-                              // Показываем SnackBar с возможностью отмены
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text('${user.name} удалён из контактов'),
                                   action: SnackBarAction(
                                     label: 'Отменить',
                                     onPressed: () async {
-                                      // При отмене — снова добавляем
-                                      await _db.createUser(user);
+                                      await _contactsRepo.addContact(user);
                                       setState(() {
                                         _contacts.insert(index, user);
                                       });
@@ -143,7 +137,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
                                   ),
                                   duration: const Duration(seconds: 3),
                                   behavior: SnackBarBehavior.floating,
-                                  margin: const EdgeInsets.only(bottom: 10, left: 16, right: 16),
+                                  margin: const EdgeInsets.only(bottom: 80, left: 16, right: 16),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),

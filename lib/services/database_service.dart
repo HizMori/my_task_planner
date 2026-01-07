@@ -33,13 +33,28 @@ class DatabaseService {
     );
   }
 
-  Future<List<User>> searchLocalContacts(String query) async {
+  Future<List<User>> searchLocalContacts(String query, {bool excludeMe = false}) async {
     final db = await database;
-    final result = await db.query(
-      'users',
-      where: 'name LIKE ?',
-      whereArgs: ['%$query%'],
-    );
+    String? myId;
+    if (excludeMe) {
+      try {
+        final response = await Supabase.instance.client.auth.getUser();
+        myId = response.user?.id;
+      } catch (e) {
+        // Ошибка при получении пользователя — не исключаем никого
+        myId = null;
+      }
+    }
+
+    var whereClause = 'name LIKE ?';
+    var whereArgs = ['%$query%'];
+
+    if (excludeMe && myId != null) {
+      whereClause += ' AND id != ?';
+      whereArgs.add(myId);
+    }
+
+    final result = await db.query('users', where: whereClause, whereArgs: whereArgs);
     return result.map((map) => User.fromMap(map)).toList();
   }
 
@@ -233,6 +248,20 @@ class DatabaseService {
     final db = await database;
     final result = await db.query('users');
     return result.map((map) => User.fromMap(map)).toList();
+  }
+
+  Future<List<User>> readAllContactsExceptMe() async {
+    try {
+      final response = await Supabase.instance.client.auth.getUser();
+      final myId = response.user?.id;
+      final users = await readAllUsers();
+      if (myId == null) return users;
+      return users.where((user) => user.id != myId).toList();
+    } catch (e) {
+      // Если ошибка (например, нет сессии) — возвращаем всех
+      final users = await readAllUsers();
+      return users;
+    }
   }
 
   Future<int> updateUser(User user) async {
