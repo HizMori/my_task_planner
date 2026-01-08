@@ -70,7 +70,10 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text('Главное')),
+      appBar: AppBar(
+        title: Text('Главное'),
+        automaticallyImplyLeading: false,
+        ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(

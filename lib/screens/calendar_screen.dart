@@ -54,7 +54,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Календарь')), // Стиль из AppBarTheme
+      appBar: AppBar(
+        title: const Text('Календарь'),
+        automaticallyImplyLeading: false,
+        ), // Стиль из AppBarTheme
       body: Column(
         children: [
           TableCalendar(

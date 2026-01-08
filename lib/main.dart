@@ -11,6 +11,8 @@ import 'screens/account_screen.dart';
 import 'screens/create_task_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'screens/group_list_screen.dart';
+import 'screens/create_group_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -230,7 +232,7 @@ class _MainScreenState extends State<MainScreen> {
   late List<Widget> _mainScreens;
   OverlayEntry? _overlayEntry;
   double _rotationAngle = 0.0; // Угол поворота для анимации (0 - плюс, 0.125 - крестик вправо)
-  final List<bool> _isButtonPressed = List.filled(2, false); // Состояние для каждой кнопки в меню
+  late List<bool> _isButtonPressed; // Состояние для каждой кнопки в меню
   bool _isAnimating = false; // Флаг для блокировки анимации во время выполнения
 
   int get screenStackLength => _screenStack.length;
@@ -245,17 +247,35 @@ class _MainScreenState extends State<MainScreen> {
       const Scaffold(),
     ];
     _screenStack.add(_mainScreens[_selectedIndex]);
+    _isButtonPressed = List.filled(_createOptions.length, false);
   }
 
   static const List<Map<String, dynamic>> _moreScreens = [
+    {
+      'title': 'Группы',
+      'screen': GroupListScreen(),
+      'icon': Icons.groups,
+    },
     {
       'title': 'Обратные отсчёты',
       'screen': CountdownsScreen(),
       'icon': Icons.timer,
     },
-    {'title': 'Контакты', 'screen': ContactsScreen(), 'icon': Icons.contacts},
-    {'title': 'Аккаунт', 'screen': AccountScreen(), 'icon': Icons.person},
-    {'title': 'Настройки', 'screen': SettingsScreen(), 'icon': Icons.settings},
+    {
+      'title': 'Контакты', 
+      'screen': ContactsScreen(), 
+      'icon': Icons.contacts
+    },
+    {
+      'title': 'Аккаунт', 
+      'screen': AccountScreen(), 
+      'icon': Icons.person
+    },
+    {
+      'title': 'Настройки', 
+      'screen': SettingsScreen(), 
+      'icon': Icons.settings
+    },
   ];
 
   static const List<Map<String, dynamic>> _createOptions = [
@@ -269,6 +289,11 @@ class _MainScreenState extends State<MainScreen> {
       'screen': CountdownsScreen(),
       'icon': Icons.timer,
     },
+    {
+    'title': 'Новая группа',
+    'screen': CreateGroupScreen(),
+    'icon': Icons.groups,
+  },
   ];
 
   void _onItemTapped(int index) {
@@ -393,8 +418,11 @@ class _MainScreenState extends State<MainScreen> {
                             _hideCreateMenu();
                             setState(() {
                               _isButtonPressed[index] = false;
-                              _screenStack.add(option['screen']);
                             });
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => option['screen']),
+                            );
                           },
                           onTapCancel: () {
                             setState(() {
@@ -588,9 +616,11 @@ class _MainScreenState extends State<MainScreen> {
                   PopupMenuButton<int>(
                     offset: const Offset(0, -220),
                     onSelected: (index) {
-                      setState(() {
-                        _screenStack.add(_moreScreens[index]['screen']);
-                      });
+                      final screen = _moreScreens[index]['screen'] as Widget;
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => screen),
+                      );
                     },
                     itemBuilder: (context) => _moreScreens.asMap().entries.map((entry) {
                       final index = entry.key;

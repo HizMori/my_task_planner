@@ -30,7 +30,10 @@ class _TaskListScreenState extends State<TaskListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Задачи')),
+      appBar: AppBar(
+        title: const Text('Задачи'),
+        automaticallyImplyLeading: false,
+        ),
       body: _tasks.isEmpty
           ? const Center(child: Text('Нет задач'))
           : ListView.builder(

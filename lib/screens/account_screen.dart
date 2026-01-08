@@ -63,7 +63,7 @@ class _AccountScreenState extends State<AccountScreen> {
     await AuthService.instance.deleteToken();
     await AuthService.instance.deleteCurrentUserId();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isLoggedIn', false);
+    await prefs.setBool('isLoggedIn', true);
     await prefs.setBool('isFirstLaunch', false);
     Navigator.pushReplacement(
       context,
