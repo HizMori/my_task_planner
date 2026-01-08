@@ -4,6 +4,7 @@ import '../services/auth_service.dart'; // Для logout
 import '../services/database_service.dart'; // Для fetch пользователя
 import '../models/user.dart'; // Модель
 import 'welcome_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 
 class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
@@ -60,15 +61,23 @@ class _AccountScreenState extends State<AccountScreen> {
     );
 
     if (result != true) return;
+
+    // Выходим из Supabase
+    final supabase = Supabase.instance.client;
+    await supabase.auth.signOut();
+
+    // Очищаем все данные
     await AuthService.instance.deleteToken();
     await AuthService.instance.deleteCurrentUserId();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isLoggedIn', true);
-    await prefs.setBool('isFirstLaunch', false);
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const WelcomeScreen()),
-    );
+    await AuthService.instance.setLoggedIn(false);
+
+    // Перенаправляем на начальный экран
+    if (context.mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const WelcomeScreen()),
+      );
+    }
   }
 
   @override
@@ -83,14 +92,6 @@ class _AccountScreenState extends State<AccountScreen> {
       );
     }
 
-    if (_user == null) {
-      return Scaffold(
-        backgroundColor: theme.scaffoldBackgroundColor,
-        appBar: AppBar(title: const Text('Аккаунт')),
-        body: const Center(child: Text('Пользователь не найден')),
-      );
-    }
-
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(title: const Text('Аккаунт')),
@@ -98,36 +99,47 @@ class _AccountScreenState extends State<AccountScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            const SizedBox(height: 20),
-            // Аватар и данные
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircleAvatar(
-                  radius: 40,
-                  backgroundImage: _user!.avatarUrl != null
-                      ? NetworkImage(_user!.avatarUrl!)  // Если avatar_url из Supabase
-                      : const AssetImage('assets/images/17404f5729d1a652c70d.png') as ImageProvider,
-                ),
-                const SizedBox(width: 16),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(_user!.name, style: theme.textTheme.headlineLarge),
-                    const SizedBox(height: 4),
-                    Text(_user!.email ?? 'Нет email', style: theme.textTheme.bodySmall),
-                    const SizedBox(height: 4),
-                    Text(_user!.telephone ?? 'Нет телефона', style: theme.textTheme.bodySmall),
-                  ],
-                ),
-              ],
-            ),
-            const Spacer(), // Пространство, чтобы кнопка "Выйти" была внизу
-            // Кнопка "Выйти"
+            if (_user != null) ...[
+              const SizedBox(height: 20),
+              // Аватар и данные
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircleAvatar(
+                    radius: 40,
+                    backgroundImage: _user!.avatarUrl != null
+                        ? NetworkImage(_user!.avatarUrl!)
+                        : const AssetImage('assets/images/17404f5729d1a652c70d.png') as ImageProvider,
+                  ),
+                  const SizedBox(width: 16),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(_user!.name, style: theme.textTheme.headlineLarge),
+                      const SizedBox(height: 4),
+                      Text(_user!.email ?? 'Нет email', style: theme.textTheme.bodySmall),
+                      const SizedBox(height: 4),
+                      Text(_user!.telephone ?? 'Нет телефона', style: theme.textTheme.bodySmall),
+                    ],
+                  ),
+                ],
+              ),
+              const Spacer(flex: 1),
+            ] else ...[
+              const SizedBox(height: 40),
+              const Text(
+                'Не удалось загрузить данные',
+                style: TextStyle(color: Colors.grey),
+              ),
+              const SizedBox(height: 20),
+              const Spacer(flex: 2),
+            ],
+
+            // Кнопка "Выйти" всегда видна
             ElevatedButton(
               onPressed: _logout,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent, // Красный цвет для кнопки "Выйти"
+                backgroundColor: Colors.redAccent,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),

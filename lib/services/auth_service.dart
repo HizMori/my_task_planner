@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'database_service.dart';
 
 class AuthService {
   static final AuthService instance = AuthService._init();
@@ -35,13 +36,40 @@ class AuthService {
     await prefs.remove('current_user_id');
   }
 
+  Future<void> setLoggedIn(bool isLoggedIn) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isLoggedIn', isLoggedIn);
+  }
+
   Future<bool> isLoggedIn() async {
+    final prefs = await SharedPreferences.getInstance();
     final token = await getToken();
     if (token == null) return false;
-    // Проверь валидность токена (опционально, Supabase проверит при запросах)
-    // Можно добавить проверку валидности сессии
+
+    // Дополнительно можно проверить сессию
     final supabase = Supabase.instance.client;
     final session = supabase.auth.currentSession;
     return session != null;
+  }
+
+  Future<void> syncCurrentUser() async {
+    final supabase = Supabase.instance.client;
+    try {
+      final response = await supabase.auth.getUser();
+      final supabaseUser = response.user;
+      if (supabaseUser == null) return;
+
+      // Получаем полные данные из таблицы users
+      final userResponse = await supabase
+          .from('users')
+          .select()
+          .eq('id', supabaseUser.id)
+          .single();
+
+      // Синхронизируем в локальную БД
+      await DatabaseService.instance.syncUserFromSupabase(userResponse);
+    } catch (e) {
+      print('Ошибка синхронизации пользователя: $e');
+    }
   }
 }

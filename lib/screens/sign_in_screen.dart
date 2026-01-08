@@ -90,7 +90,8 @@ class _SignInScreenState extends State<SignInScreen> {
       // Сохраняем токен (если "Запомнить меня" — всегда сохраняем для простоты)
       if (_isRememberMe) {
         await AuthService.instance.saveToken(authResponse.session!.accessToken);
-      }
+        await AuthService.instance.setLoggedIn(true);
+      } else {}
 
       // Fetch пользователя из Supabase по supabase_user_id
       final userResponse = await supabase
@@ -109,6 +110,9 @@ class _SignInScreenState extends State<SignInScreen> {
 
       // Сохраняем current_user_id (ID из users)
       await AuthService.instance.saveCurrentUserId(userResponse['id']);
+
+      // Синхронизируем данные
+      await AuthService.instance.syncCurrentUser();
 
       // Переходим на MainScreen
       Navigator.pushReplacement(

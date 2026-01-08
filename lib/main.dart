@@ -1,6 +1,9 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'screens/home_screen.dart';
 import 'screens/task_list_screen.dart';
 import 'screens/calendar_screen.dart';
@@ -10,16 +13,18 @@ import 'screens/countdowns_screen.dart';
 import 'screens/account_screen.dart';
 import 'screens/create_task_screen.dart';
 import 'screens/welcome_screen.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'screens/group_list_screen.dart';
 import 'screens/create_group_screen.dart';
+import 'services/auth_service.dart';
+import 'services/database_service.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Supabase.initialize(
-    url: 'https://dlqknakuectcbciqssaz.supabase.co', 
-    anonKey: 'sb_publishable_nzc7YWw8V8N6HwDdzQhI6g_o2sjALYS', 
+    url: 'https://dlqknakuectcbciqssaz.supabase.co',
+    anonKey: 'sb_publishable_nzc7YWw8V8N6HwDdzQhI6g_o2sjALYS',
   );
 
   runApp(const MyApp());
@@ -36,10 +41,39 @@ class MyApp extends StatelessWidget {
     final isFirstLaunch = prefs.getBool('isFirstLaunch') ?? true;
     final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
 
-    if (isFirstLaunch || !isLoggedIn) {
+    if (isFirstLaunch) {
       return const WelcomeScreen();
     }
-    return const MainScreen();
+
+    if (!isLoggedIn) {
+      return const WelcomeScreen();
+    }
+
+    // Пробуем онлайн-вход
+    try {
+      final response = await supabase.auth.getUser();
+      final user = response.user;
+      if (user != null) {
+        await AuthService.instance.syncCurrentUser();
+        return const MainScreen();
+      }
+    } catch (e) {
+      print('Онлайн-аутентификация не удалась: $e');
+    }
+
+    // Офлайн-вход: если есть локальные данные
+    final userId = await AuthService.instance.getCurrentUserId();
+    if (userId != null) {
+      final localUser = await DatabaseService.instance.readUserById(userId);
+      if (localUser != null) {
+        print('Офлайн-вход: пользователь найден в локальной БД');
+        return const MainScreen();
+      }
+    }
+
+    // Очищаем флаг, если не удалось войти
+    await AuthService.instance.setLoggedIn(false);
+    return const WelcomeScreen();
   }
 
   @override
@@ -234,6 +268,8 @@ class _MainScreenState extends State<MainScreen> {
   double _rotationAngle = 0.0; // Угол поворота для анимации (0 - плюс, 0.125 - крестик вправо)
   late List<bool> _isButtonPressed; // Состояние для каждой кнопки в меню
   bool _isAnimating = false; // Флаг для блокировки анимации во время выполнения
+  final Connectivity _connectivity = Connectivity();
+  late StreamSubscription<ConnectivityResult> _connectivitySubscription;
 
   int get screenStackLength => _screenStack.length;
 
@@ -248,6 +284,18 @@ class _MainScreenState extends State<MainScreen> {
     ];
     _screenStack.add(_mainScreens[_selectedIndex]);
     _isButtonPressed = List.filled(_createOptions.length, false);
+
+    _startConnectivityListener();
+  }
+
+  void _startConnectivityListener() {
+    _connectivitySubscription = _connectivity.onConnectivityChanged
+      .map((results) => results.isNotEmpty ? results.first : ConnectivityResult.none)
+      .listen((ConnectivityResult result) {
+        if (result == ConnectivityResult.wifi || result == ConnectivityResult.mobile) {
+          _syncIfOnline();
+      }
+    });
   }
 
   static const List<Map<String, dynamic>> _moreScreens = [
@@ -262,19 +310,19 @@ class _MainScreenState extends State<MainScreen> {
       'icon': Icons.timer,
     },
     {
-      'title': 'Контакты', 
-      'screen': ContactsScreen(), 
-      'icon': Icons.contacts
+      'title': 'Контакты',
+      'screen': ContactsScreen(),
+      'icon': Icons.contacts,
     },
     {
-      'title': 'Аккаунт', 
-      'screen': AccountScreen(), 
-      'icon': Icons.person
+      'title': 'Аккаунт',
+      'screen': AccountScreen(),
+      'icon': Icons.person,
     },
     {
-      'title': 'Настройки', 
-      'screen': SettingsScreen(), 
-      'icon': Icons.settings
+      'title': 'Настройки',
+      'screen': SettingsScreen(),
+      'icon': Icons.settings,
     },
   ];
 
@@ -290,42 +338,55 @@ class _MainScreenState extends State<MainScreen> {
       'icon': Icons.timer,
     },
     {
-    'title': 'Новая группа',
-    'screen': CreateGroupScreen(),
-    'icon': Icons.groups,
-  },
+      'title': 'Новая группа',
+      'screen': CreateGroupScreen(),
+      'icon': Icons.groups,
+    },
   ];
 
-  void _onItemTapped(int index) {
+  // Синхронизация при каждом переходе
+  Future<void> _syncIfOnline() async {
+    try {
+      final result = await InternetAddress.lookup('google.com');
+      if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
+        await AuthService.instance.syncCurrentUser();
+      }
+    } on SocketException {
+      // Нет интернета — пропускаем
+    } catch (e) {
+      print('Ошибка проверки интернета: $e');
+    }
+  }
+
+  void _onItemTapped(int index) async {
     if (index == 3) {
-      // Ничего не делаем, так как PopupMenuButton сам обрабатывает нажатие
+      // Меню — не синхронизируем
     } else {
       setState(() {
         _selectedIndex = index;
         _screenStack.clear();
         _screenStack.add(_mainScreens[_selectedIndex]);
-        _hideCreateMenu(); // Закрываем меню и сбрасываем иконку при переключении экрана
+        _hideCreateMenu();
       });
+      // 🔁 Синхронизация при переключении вкладок
+      await _syncIfOnline();
     }
   }
 
   void pushScreen(Widget screen) {
     setState(() {
       _screenStack.add(screen);
-      _hideCreateMenu(); // Закрываем меню и сбрасываем иконку при переходе на новый экран
+      _hideCreateMenu();
     });
-    Future.delayed(Duration.zero, () {
-      if (_screenStack.length > 1) {
-        setState(() {});
-      }
-    });
+    // 🔁 Синхронизация при переходе на новый экран
+    _syncIfOnline();
   }
 
   void popScreen() {
     if (_screenStack.length > 1) {
       setState(() {
         _screenStack.removeLast();
-        _hideCreateMenu(); // Закрываем меню и сбрасываем иконку при возврате назад
+        _hideCreateMenu();
       });
       setState(() {});
     }
@@ -350,19 +411,12 @@ class _MainScreenState extends State<MainScreen> {
     // Закрываем предыдущее меню, если оно открыто
     _hideCreateMenu();
 
-    final RenderBox? overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
-    if (overlay == null) {
-      print('Overlay not found');
-      return;
-    }
+    final RenderBox? overlay = Overlay.of(context)?.context.findRenderObject() as RenderBox?;
+    if (overlay == null) return;
 
-    final RenderBox? button = context.findRenderObject() as RenderBox;
-    if (button == null) {
-      print('Button render object not found');
-      return;
-    }
+    final RenderBox? button = context.findRenderObject() as RenderBox?;
+    if (button == null) return;
 
-    // Настройка ширины меню
     final menuWidth = _createOptions.length * 60.0;
 
     // Настройка высоты меню
@@ -379,9 +433,7 @@ class _MainScreenState extends State<MainScreen> {
           // Прозрачный слой для закрытия меню при тапе вне его
           GestureDetector(
             onTap: _hideCreateMenu,
-            child: Container(
-              color: Colors.transparent,
-            ),
+            child: Container(color: Colors.transparent),
           ),
           // Меню
           Positioned(
@@ -402,33 +454,18 @@ class _MainScreenState extends State<MainScreen> {
                     width: menuWidth,
                     color: Theme.of(context).popupMenuTheme.color ?? Theme.of(context).scaffoldBackgroundColor,
                     child: Row(
-                      mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: _createOptions.asMap().entries.map((entry) {
                         final index = entry.key;
                         final option = entry.value;
                         return GestureDetector(
-                          onTapDown: (_) {
-                            setState(() {
-                              _isButtonPressed[index] = true;
-                            });
-                          },
+                          onTapDown: (_) => setState(() => _isButtonPressed[index] = true),
                           onTapUp: (_) {
                             _hideCreateMenu();
-                            setState(() {
-                              _isButtonPressed[index] = false;
-                            });
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => option['screen']),
-                            );
+                            setState(() => _isButtonPressed[index] = false);
+                            Navigator.push(context, MaterialPageRoute(builder: (context) => option['screen']));
                           },
-                          onTapCancel: () {
-                            setState(() {
-                              _isButtonPressed[index] = false;
-                            });
-                          },
+                          onTapCancel: () => setState(() => _isButtonPressed[index] = false),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 100),
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
@@ -451,8 +488,7 @@ class _MainScreenState extends State<MainScreen> {
     );
 
     try {
-      Overlay.of(context).insert(_overlayEntry!);
-      // Снимаем блокировку после завершения анимации
+      Overlay.of(context)?.insert(_overlayEntry!);
       Future.delayed(const Duration(milliseconds: 300), () {
         setState(() {
           _isAnimating = false;
@@ -469,8 +505,8 @@ class _MainScreenState extends State<MainScreen> {
   void _hideCreateMenu() {
     if (_overlayEntry != null) {
       setState(() {
-        _rotationAngle = 0; // Обнуляем угол
-        _isAnimating = true; // Блокируем новые нажатия
+        _rotationAngle = 0;
+        _isAnimating = true;
       });
       _overlayEntry?.remove();
       _overlayEntry = null;
@@ -485,6 +521,7 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   void dispose() {
+    _connectivitySubscription.cancel();
     _hideCreateMenu();
     super.dispose();
   }
@@ -492,7 +529,6 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
@@ -506,8 +542,8 @@ class _MainScreenState extends State<MainScreen> {
         floatingActionButton: Builder(
           builder: (context) => GestureDetector(
             onTap: () {
-              if (_isAnimating) return; // Игнорируем нажатия во время анимации
-              final RenderBox? button = context.findRenderObject() as RenderBox;
+              if (_isAnimating) return;
+              final RenderBox? button = context.findRenderObject() as RenderBox?;
               if (button != null) {
                 final Offset buttonPosition = button.localToGlobal(Offset.zero);
                 if (_overlayEntry == null) {
@@ -515,25 +551,19 @@ class _MainScreenState extends State<MainScreen> {
                 } else {
                   _hideCreateMenu();
                 }
-              } else {
-                print('Button render object not found');
               }
             },
             child: AnimatedRotation(
-              turns: _rotationAngle, // Используем угол для анимации
+              turns: _rotationAngle,
               duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut, // Плавная кривая анимации
+              curve: Curves.easeInOut,
               child: FloatingActionButton(
-                onPressed: null, // Отключаем стандартный onPressed
+                onPressed: null,
                 backgroundColor: const Color(0xFFf37e61),
                 foregroundColor: Colors.white,
                 shape: const CircleBorder(),
                 elevation: 2.0,
-                focusElevation: 4.0,
-                child: Icon(
-                  Icons.add, // Всегда используем иконку плюс, поворот создаёт эффект крестика
-                  size: 30,
-                ),
+                child: const Icon(Icons.add, size: 30),
               ),
             ),
           ),
@@ -629,10 +659,7 @@ class _MainScreenState extends State<MainScreen> {
                         value: index,
                         child: Row(
                           children: [
-                            Icon(
-                              screen['icon'],
-                              color: const Color(0xFF7e61f3),
-                            ),
+                            Icon(screen['icon'], color: const Color(0xFF7e61f3)),
                             const SizedBox(width: 8),
                             Text(
                               screen['title'],

@@ -16,7 +16,6 @@ class DatabaseService {
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    await deleteDB();  // Удаляем БД при каждом запуске (стирает все данные)
     _database = await _initDB('planner.db');
     return _database!;
   }

@@ -3,6 +3,7 @@ import '../models/task.dart';
 import '../services/database_service.dart';
 import '../models/user.dart'; // Модель
 import '../services/auth_service.dart'; // Для logout
+import '../widgets/online_status_icon.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -72,6 +73,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Главное'),
+        actions: [
+          const OnlineStatusIcon(),
+          const SizedBox(width: 12),
+        ],
         automaticallyImplyLeading: false,
         ),
       body: Padding(
