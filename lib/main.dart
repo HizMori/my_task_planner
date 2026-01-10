@@ -279,7 +279,7 @@ class _MainScreenState extends State<MainScreen> {
     _mainScreens = [
       const HomeScreen(),
       const TaskListScreen(),
-      const CalendarScreen(),
+      const GroupListScreen(),
       const Scaffold(),
     ];
     _screenStack.add(_mainScreens[_selectedIndex]);
@@ -300,9 +300,9 @@ class _MainScreenState extends State<MainScreen> {
 
   static const List<Map<String, dynamic>> _moreScreens = [
     {
-      'title': 'Группы',
-      'screen': GroupListScreen(),
-      'icon': Icons.groups,
+      'title': 'Календарь',
+      'screen': CalendarScreen(),
+      'icon': Icons.calendar_today,
     },
     {
       'title': 'Обратные отсчёты',
@@ -368,7 +368,7 @@ class _MainScreenState extends State<MainScreen> {
         _screenStack.add(_mainScreens[_selectedIndex]);
         _hideCreateMenu();
       });
-      // 🔁 Синхронизация при переключении вкладок
+      // Синхронизация при переключении вкладок
       await _syncIfOnline();
     }
   }
@@ -378,7 +378,7 @@ class _MainScreenState extends State<MainScreen> {
       _screenStack.add(screen);
       _hideCreateMenu();
     });
-    // 🔁 Синхронизация при переходе на новый экран
+    // Синхронизация при переходе на новый экран
     _syncIfOnline();
   }
 
@@ -636,7 +636,7 @@ class _MainScreenState extends State<MainScreen> {
                   const SizedBox(width: 40),
                   IconButton(
                     icon: Icon(
-                      Icons.calendar_today,
+                      Icons.groups,
                       color: _selectedIndex == 2
                           ? const Color(0xFF7e61f3)
                           : const Color(0xFFB0BEC5),

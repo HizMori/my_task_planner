@@ -3,6 +3,7 @@ import '../models/group.dart';
 import '../services/database_service.dart';
 import 'group_details_screen.dart';
 import 'create_group_screen.dart';
+import '../widgets/online_status_icon.dart';
 
 class GroupListScreen extends StatefulWidget {
   const GroupListScreen({super.key});
@@ -65,7 +66,11 @@ class _GroupListScreenState extends State<GroupListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Группы'),
-        centerTitle: true,
+        actions: [
+          const OnlineStatusIcon(),
+          const SizedBox(width: 12),
+        ],
+        automaticallyImplyLeading: false,
       ),
       body: Column(
         children: [
