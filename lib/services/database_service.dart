@@ -196,6 +196,7 @@ class DatabaseService {
   }
 
   final _uuid = Uuid();
+  Uuid get uuid => _uuid;
 
   // CRUD для задач
   Future<Task> createTask(Task task) async {

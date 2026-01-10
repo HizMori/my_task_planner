@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/group.dart';
 import '../services/database_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide User;
+
 
 class CreateGroupScreen extends StatefulWidget {
   const CreateGroupScreen({super.key});
@@ -27,12 +29,35 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
         _isLoading = true;
       });
 
+      String? userId;
+
+      try {
+        final response = await Supabase.instance.client.auth.getUser();
+        userId = response.user?.id;
+
+        if (userId == null) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Не удалось определить пользователя')),
+            );
+          }
+          return;
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Ошибка авторизации: $e')),
+          );
+        }
+        return;
+      }
+
       try {
         final now = DateTime.now();
         final group = Group(
-          id: DateTime.now().millisecondsSinceEpoch.toString(), // Простой ID
+          id: _db.uuid.v4(), // ID через uuid
           name: _nameController.text.trim(),
-          creatorId: 'current_user', // Позже заменишь на реальный ID
+          creatorId: userId, // Позже заменишь на реальный ID
           createdAt: now,
           updatedAt: now,
           lastSyncAt: null,
