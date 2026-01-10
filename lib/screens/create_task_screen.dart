@@ -45,6 +45,17 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   void initState() {
     super.initState();
     _loadGroups();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      setState(() {
+        _title = '';
+        _description = '';
+        _deadline = null;
+        _priority = 'medium';
+        _category = 'работа';
+        _groupId = null;
+        _formKey.currentState?.reset();
+      });
+    });
   }
 
   Future<void> _loadGroups() async {
@@ -414,6 +425,17 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                       last_sync_at: null,
                     );
                     await _databaseService.createTask(task);
+                    // Сброс всех полей
+                    setState(() {
+                      _formKey.currentState?.reset(); // Сброс формы (очистка полей ввода)
+                      _title = '';
+                      _description = '';
+                      _deadline = null;
+                      _priority = 'medium';
+                      _category = 'работа';
+                      _groupId = null;
+                    });
+                    // Закрытие экрана
                     if (context.mounted) {
                       MainScreen.of(context)?.popScreen();
                     }

@@ -62,10 +62,34 @@ class _TaskListScreenState extends State<TaskListScreen> {
             itemBuilder: (context, index) {
               final task = _tasks[index];
               return Dismissible(
-                key: Key(task.id.toString()),
+                key:Key(task.id ?? ''),
                 onDismissed: (direction) async {
-                  await _databaseService.deleteTask(task.id!);
-                  _loadTasks();
+                  // Сохраняем копию задачи на случай, если нужно будет отменить
+                  final removedTask = task;
+                  final removedIndex = index;
+                   // Удаляем из БД
+                  await _databaseService.deleteTask(task.id);
+                  // Удаляем из списка СРАЗУ (без ожидания перезагрузки)
+                  setState(() {
+                    _tasks.removeAt(index);
+                  });
+                  // Показываем Snackbar с возможностью отмены (опционально)
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('Задача удалена'),
+                      action: SnackBarAction(
+                        label: 'Отменить',
+                        onPressed: () async {
+                          // Возвращаем задачу обратно
+                          setState(() {
+                            _tasks.insert(removedIndex, removedTask);
+                          });
+                          // И восстанавливаем в БД
+                          await _databaseService.createTask(removedTask);
+                        },
+                      ),
+                    ),
+                  );
                 },
                 background: Container(color: Colors.red),
                 child: Card(

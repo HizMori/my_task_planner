@@ -7,6 +7,7 @@ import '../models/group_member.dart';
 import '../models/message.dart';
 import '../models/app_settings.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
+import 'package:uuid/uuid.dart';
 
 class DatabaseService {
   static final DatabaseService instance = DatabaseService._init();
@@ -194,10 +195,13 @@ class DatabaseService {
     );
   }
 
+  final _uuid = Uuid();
+
   // CRUD для задач
   Future<Task> createTask(Task task) async {
     final db = await database;
-    final id = await db.insert('tasks', task.toMap());
+    final id = task.id ?? _uuid.v4(); // Если id нет — генерируем
+    await db.insert('tasks', task.copyWith(id: id).toMap());
     return task.copyWith(id: id);
   }
 
@@ -217,7 +221,8 @@ class DatabaseService {
     );
   }
 
-  Future<int> deleteTask(int id) async {
+  Future<int> deleteTask(String? id) async {
+    if (id == null) return 0; // Если id нет — нечего удалять
     final db = await database;
     return await db.delete('tasks', where: 'id = ?', whereArgs: [id]);
   }

@@ -1,6 +1,6 @@
 // Класс, описывающий структуру задачи
 class Task {
-  final int? id; // Уникальный идентификатор задачи (может быть null при создании)
+  final String? id; // Уникальный идентификатор задачи (может быть null при создании)
   final String title; // Название задачи
   final String? description; // Описание задачи (может быть пустым)
   final String? dueDate;
@@ -77,7 +77,7 @@ class Task {
 
   // Метод для создания копии задачи с измененными полями
   Task copyWith({
-    int? id,
+    String? id,
     String? title,
     String? description,
     DateTime? deadline,
