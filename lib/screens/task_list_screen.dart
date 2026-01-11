@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/task.dart'; // Импортируем модель задачи
 import '../services/database_service.dart'; // Импортируем сервис базы данных
 import '../widgets/online_status_icon.dart';
+import 'create_task_screen.dart';
 
 class TaskListScreen extends StatefulWidget {
   const TaskListScreen({super.key});
@@ -105,6 +106,16 @@ class _TaskListScreenState extends State<TaskListScreen> {
                         _loadTasks();
                       },
                     ),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CreateTaskScreen(task: task),
+                        ),
+                      ).then((value) {
+                        if (value == true) _loadTasks(); // Перезагружаем задачи после редактирования
+                      });
+                    },
                   ),
                 ),
               );

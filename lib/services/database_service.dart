@@ -228,6 +228,13 @@ class DatabaseService {
     return await db.delete('tasks', where: 'id = ?', whereArgs: [id]);
   }
 
+  // Удалить все задачи группы
+  Future<void> deleteTasksByGroupId(String? groupId) async {
+    if (groupId == null) return;
+    final db = await database;
+    await db.delete('tasks', where: 'group_id = ?', whereArgs: [groupId]);
+  }
+
   // CRUD для пользователей
   Future<User> createUser(User user) async {
     final db = await database;
@@ -307,9 +314,11 @@ class DatabaseService {
     );
   }
 
-  Future<int> deleteGroup(int id) async {
+  // Удалить группу по ID
+  Future<void> deleteGroupById(String? id) async {
+    if (id == null) return;
     final db = await database;
-    return await db.delete('groups', where: 'id = ?', whereArgs: [id]);
+    await db.delete('groups', where: 'id = ?', whereArgs: [id]);
   }
 
   // CRUD для участников групп
@@ -328,6 +337,13 @@ class DatabaseService {
   Future<int> deleteGroupMember(int groupId, int userId) async {
     final db = await database;
     return await db.delete('group_members', where: 'group_id = ? AND user_id = ?', whereArgs: [groupId, userId]);
+  }
+
+  // Удалить всех участников группы
+  Future<void> deleteAllMembersByGroupId(String? groupId) async {
+    if (groupId == null) return;
+    final db = await database;
+    await db.delete('group_members', where: 'group_id = ?', whereArgs: [groupId]);
   }
 
   // CRUD для сообщений
@@ -358,6 +374,13 @@ class DatabaseService {
     return await db.delete('messages', where: 'id = ?', whereArgs: [id]);
   }
 
+  // Удалить все сообщения группы
+  Future<void> deleteMessagesByGroupId(String? groupId) async {
+    if (groupId == null) return;
+    final db = await database;
+    await db.delete('messages', where: 'group_id = ?', whereArgs: [groupId]);
+  }
+
   // CRUD для настроек
   Future<AppSettings> createAppSettings(AppSettings settings) async {
     final db = await database;
@@ -386,6 +409,8 @@ class DatabaseService {
     final db = await database;
     return await db.delete('app_settings', where: 'user_id = ?', whereArgs: [userId]);
   }
+
+
 
   Future close() async {
     final db = await database;

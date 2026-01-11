@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/group.dart';
 import '../services/database_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
+import '/screens/group_list_screen.dart';
 
 
 class CreateGroupScreen extends StatefulWidget {
@@ -70,6 +71,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
             const SnackBar(content: Text('Группа создана!')),
           );
           Navigator.pop(context, group); // Возвращаем созданную группу
+          
         }
       } catch (e) {
         if (context.mounted) {
@@ -90,7 +92,6 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Scaffold(
       appBar: AppBar(title: const Text('Создать группу')),
       body: Padding(

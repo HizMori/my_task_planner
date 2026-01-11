@@ -40,23 +40,18 @@ class _GroupListScreenState extends State<GroupListScreen> {
     }
   }
 
-  Future<void> _createGroup() async {
+  void _openGroupDetails(Group group) async {
     final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const CreateGroupScreen()),
-    );
-    if (result != null) {
-      _loadGroups(); // Обновляем список после создания
-    }
-  }
-
-  void _openGroupDetails(Group group) {
-    Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => GroupDetailsScreen(group: group),
       ),
     );
+
+    // Если вернули true — значит, группу удалили
+    if (result == true) {
+      await _loadGroups(); // Обновляем список
+    }
   }
 
   @override

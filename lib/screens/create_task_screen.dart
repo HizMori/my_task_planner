@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import '../models/task.dart';
 import '../services/database_service.dart';
-import '../main.dart';
 import '../models/group.dart';
 
 class CreateTaskScreen extends StatefulWidget {
   // Добавляем возможность передать группу по умолчанию
   final String? initialGroupId;
+  final Task? task;
 
-  const CreateTaskScreen({super.key, this.initialGroupId});
+  const CreateTaskScreen({super.key, this.initialGroupId, this.task});
 
   @override
   State<CreateTaskScreen> createState() => _CreateTaskScreenState();
@@ -16,13 +16,13 @@ class CreateTaskScreen extends StatefulWidget {
 
 class _CreateTaskScreenState extends State<CreateTaskScreen> {
   final _formKey = GlobalKey<FormState>();
-  String _title = '';
-  String _description = '';
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
   DateTime? _deadline;
   String _priority = 'medium';
   String _category = 'работа';
   String? _groupId; // null — значит личная задача
-  final String _creatorId = 'current_user'; // Замени на реальный ID позже
+  String _creatorId = 'current_user'; // Замени на реальный ID позже
 
   final DatabaseService _databaseService = DatabaseService.instance;
 
@@ -45,17 +45,28 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   void initState() {
     super.initState();
     _loadGroups();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      setState(() {
-        _title = '';
-        _description = '';
-        _deadline = null;
-        _priority = 'medium';
-        _category = 'работа';
-        _groupId = null;
-        _formKey.currentState?.reset();
-      });
-    });
+    if (widget.task != null) {
+    // Режим редактирования
+      final task = widget.task!;
+      _titleController.text = task.title;
+      _descriptionController.text = task.description ?? '';
+      _deadline = task.deadline;
+      _priority = task.priority ?? 'medium';
+      _category = task.category ?? 'работа';
+      _groupId = task.groupId;
+      _creatorId = task.creatorId;
+    } else {
+      _titleController.text = '';
+      _descriptionController.text = '';
+      _groupId = widget.initialGroupId;
+    }
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadGroups() async {
@@ -73,30 +84,6 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Ошибка загрузки групп')),
       );
-    }
-  }
-
-  Future<void> _showDeleteConfirmationDialog() async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Удаление задачи'),
-        content: const Text('Удалить эту задачу?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Отмена'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Удалить'),
-          ),
-        ],
-      ),
-    );
-
-    if (result == true) {
-      MainScreen.of(context)?.popScreen();
     }
   }
 
@@ -182,28 +169,68 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Новая задача'),
+        title: Text(widget.task != null ? 'Редактирование' : 'Новая задача'),
         actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            onSelected: (value) {
-              if (value == 'delete') {
-                _showDeleteConfirmationDialog();
-              }
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem<String>(
-                value: 'delete',
-                child: Text('Удалить'),
+          if (widget.task != null) ...[
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
+              onSelected: (value) async {
+                if (value == 'delete') {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Удалить задачу?'),
+                      content: const Text('Эта задача будет безвозвратно удалена.'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Отмена'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text(
+                            'Удалить',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+
+                  if (confirmed == true) {
+                    await _databaseService.deleteTask(widget.task!.id);
+                    if (context.mounted) {
+                      Navigator.pop(context, true); // Возвращаем true, чтобы обновить список
+                    }
+                  }
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: const [
+                      Icon(Icons.delete, color: Colors.red, size: 18),
+                      SizedBox(width: 10),
+                      Text(
+                        'Удалить задачу',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              color: theme.scaffoldBackgroundColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-            ],
-            color: theme.scaffoldBackgroundColor,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              elevation: 4,
+              offset: const Offset(0, kToolbarHeight - 10),
             ),
-            elevation: 4,
-            offset: const Offset(0, kToolbarHeight - 10),
-          ),
+          ],
         ],
       ),
       body: Padding(
@@ -212,32 +239,46 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
           key: _formKey,
           child: ListView(
             children: [
+              const SizedBox(height: 16),
               // Название
               TextFormField(
+                controller: _titleController,
                 decoration: InputDecoration(
-                  labelText: 'Название',
+                  labelText: 'Название задачи',
+                  hintText: 'Например: поесть, поспать',
                   labelStyle: theme.textTheme.bodyMedium,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 validator: (value) {
-                  if (value == null || value.isEmpty) return 'Введите название';
+                  if (value == null || value.trim().isEmpty) {
+                  return 'Введите название';
+                  }
+                  if (value.trim().length < 2) {
+                    return 'Название слишком короткое';
+                  }
                   return null;
                 },
-                onSaved: (value) => _title = value!,
+                textInputAction: TextInputAction.done,
               ),
 
               const SizedBox(height: 16),
 
               // Описание
               TextFormField(
+                controller: _descriptionController,
                 decoration: InputDecoration(
                   labelText: 'Описание',
-                  labelStyle: theme.textTheme.bodyMedium,
+                  hintText: 'Описание (необязательно)',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-                maxLines: 3,
-                onSaved: (value) => _description = value ?? '',
+                textInputAction: TextInputAction.next,
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
               // Дедлайн
               ListTile(
@@ -412,36 +453,55 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                   if (_formKey.currentState!.validate()) {
                     _formKey.currentState!.save();
                     final now = DateTime.now();
-                    final task = Task(
-                      title: _title,
-                      description: _description,
-                      deadline: _deadline,
-                      priority: _priority,
-                      category: _category,
-                      groupId: _groupId,
-                      creatorId: _creatorId,
-                      createdAt: now,
-                      updatedAt: now,
-                      last_sync_at: null,
-                    );
-                    await _databaseService.createTask(task);
-                    // Сброс всех полей
-                    setState(() {
-                      _formKey.currentState?.reset(); // Сброс формы (очистка полей ввода)
-                      _title = '';
-                      _description = '';
-                      _deadline = null;
-                      _priority = 'medium';
-                      _category = 'работа';
-                      _groupId = null;
-                    });
-                    // Закрытие экрана
+                    final isEditing = widget.task != null;
+                    final task = isEditing
+                        ? widget.task!.copyWith(
+                            title: _titleController.text.trim(),
+                            description: _descriptionController.text,
+                            deadline: _deadline,
+                            priority: _priority,
+                            category: _category,
+                            groupId: _groupId,
+                            updatedAt: now,
+                          )
+                        : Task(
+                            title: _titleController.text.trim(),
+                            description: _descriptionController.text,
+                            deadline: _deadline,
+                            priority: _priority,
+                            category: _category,
+                            groupId: _groupId,
+                            creatorId: _creatorId,
+                            createdAt: now,
+                            updatedAt: now,
+                            last_sync_at: null,
+                          );
+
+                    if (isEditing) {
+                      await _databaseService.updateTask(task);
+                    } else {
+                      await _databaseService.createTask(task);
+                    }
+
+                    // Сброс формы только при создании
+                    if (!isEditing) {
+                      setState(() {
+                        _titleController.text = '';
+                        _descriptionController.text = '';
+                        _deadline = null;
+                        _priority = 'medium';
+                        _category = 'работа';
+                        _groupId = null;
+                      });
+                      _formKey.currentState?.reset();
+                    }
+
                     if (context.mounted) {
-                      MainScreen.of(context)?.popScreen();
+                      Navigator.pop(context, true);
                     }
                   }
                 },
-                child: const Text('Сохранить'),
+                child: Text(widget.task != null ? 'Обновить' : 'Сохранить'),
               ),
             ],
           ),
@@ -510,7 +570,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
       items: items.map((item) {
         final bool isSelected = item['id'] == _groupId;
         return PopupMenuItem<String?>(
-          value: item['id'] as String?,
+          value: item['id'],
           padding: EdgeInsets.zero,
           child: Container(
             width: double.infinity,
