@@ -4,7 +4,7 @@ publish_to: 'none'
 version: 1.4.5+5
 
 environment:
-  sdk: ^3.7.2
+  sdk: ^3.10.0
 
 dependencies:
   flutter:
@@ -13,9 +13,9 @@ dependencies:
   sqflite: ^2.4.2
   path: ^1.9.1
   table_calendar: ^3.2.0 
-  shared_preferences: ^2.5.3
-  google_fonts: ^6.2.1
-  supabase_flutter: ^2.10.3
+  shared_preferences: ^2.5.4
+  google_fonts: ^7.0.1
+  supabase_flutter: ^2.12.0
   connectivity_plus: ^7.0.0
   uuid: ^4.5.2
 
