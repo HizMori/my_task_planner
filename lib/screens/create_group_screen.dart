@@ -55,16 +55,36 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
 
       try {
         final now = DateTime.now();
+        final groupId = _db.uuid.v4();
         final group = Group(
-          id: _db.uuid.v4(), // ID через uuid
+          id: groupId, // ID через uuid
           name: _nameController.text.trim(),
-          creatorId: userId, // Позже заменишь на реальный ID
+          creatorId: userId, // реальный ID
           createdAt: now,
           updatedAt: now,
-          lastSyncAt: null,
+          lastSyncAt: now,
         );
-
+        // Сохраняем в локальную БД
         await _db.createGroup(group);
+
+        // Отправляем в Supabase
+        await Supabase.instance.client.from('groups').insert({
+          'id': groupId,
+          'name': group.name,
+          'creator_id': userId,
+          'created_at': now.toIso8601String(),
+          'updated_at': now.toIso8601String(),
+          'last_sync_at': now.toIso8601String(),
+        });
+
+        // Добавляем создателя как участника группы в Supabase
+        await Supabase.instance.client.from('group_members').insert({
+          'group_id': groupId,
+          'user_id': userId,
+          'joined_at': now.toIso8601String(),
+          'updated_at': now.toIso8601String(),
+          'last_sync_at': now.toIso8601String(),
+        });
 
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

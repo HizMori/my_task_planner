@@ -353,7 +353,7 @@ class DatabaseService {
     return message;
   }
 
-  Future<List<Message>> readMessagesForGroup(int groupId) async {
+  Future<List<Message>> readMessagesForGroup(String groupId) async {
     final db = await database;
     final result = await db.query('messages', where: 'group_id = ?', whereArgs: [groupId]);
     return result.map((map) => Message.fromMap(map)).toList();

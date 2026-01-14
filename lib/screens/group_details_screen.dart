@@ -172,9 +172,9 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen>
         controller: _tabController,
         children: [
           // Вкладка: Участники
-          const GroupMembersScreen(),
+          GroupMembersScreen(group: widget.group),
           // Вкладка: Чат
-          const GroupChatScreen(),
+          GroupChatScreen(groupId: widget.group.id),
           // Вкладка: Задачи
           GroupTasksScreen(group: widget.group),
         ],

@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import '../models/group.dart';
 import '../models/user.dart';
 import '../services/database_service.dart';
 import 'search_users_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 
 class GroupMembersScreen extends StatefulWidget {
-  const GroupMembersScreen({super.key});
+  final Group group;
+
+  const GroupMembersScreen({super.key, required this.group});
 
   @override
   State<GroupMembersScreen> createState() => _GroupMembersScreenState();
@@ -14,26 +18,61 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
   final DatabaseService _db = DatabaseService.instance;
   List<User> _members = [];
   String? _currentUserId;
-  String _groupName = 'Моя группа'; // Заглушка — в дальнейшем передаём из GroupDetails
   bool _isLoading = true;
+
+  // Добавь ID группы — важно!
+  late final String _groupId;
 
   @override
   void initState() {
     super.initState();
+    // Получаем из GroupDetailsScreen через widget.group
+    _groupId = widget.group.id;
     _loadData();
   }
 
   Future<void> _loadData() async {
     try {
-      // Имитация загрузки участников
-      // В будущем: _members = await _db.getMembersOfGroup(groupId);
-      // Пока — заглушка
-      final users = await _db.readAllUsers();
-      _members = users.take(5).toList(); // Берём первых 5 пользователей
-
       // Получаем ID текущего пользователя
-      // В будущем: через Supabase.auth.getUser()
-      _currentUserId = 'current_user'; // Пока заглушка
+      final response = await Supabase.instance.client.auth.getUser();
+      _currentUserId = response.user?.id;
+
+      if (_currentUserId == null) {
+        throw Exception("Пользователь не авторизован");
+      }
+
+      final uid = _currentUserId;
+      if (uid == null) return;
+
+      // Проверяем, состоит ли пользователь в этой группе
+      final membershipCheck = await Supabase.instance.client
+          .from('group_members')
+          .select('group_id')
+          .eq('group_id', _groupId)
+          .eq('user_id', uid)
+          .limit(1);
+      
+      if ((membershipCheck as List).isEmpty) {
+        throw Exception("Вы не состоите в этой группе");
+      }
+
+      // Загружаем участников из Supabase
+      final membersData = await Supabase.instance.client
+          .from('group_members')
+          .select('user_id')
+          .eq('group_id', _groupId);
+
+      final userIds = (membersData as List).map((m) => m['user_id'] as String).toList();
+
+      // Загружаем профили пользователей
+      final usersData = await Supabase.instance.client
+          .from('users')
+          .select('id, name, created_at, updated_at')
+          .filter('id', 'in', userIds);
+
+      print('Users data: $usersData');
+
+      _members = (usersData as List).map((u) => User.fromMap(u)).toList();
 
       setState(() {
         _isLoading = false;
@@ -43,34 +82,48 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
         _isLoading = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка загрузки: $e')),
+        SnackBar(content: Text('Ошибка загрузки участников: $e')),
       );
     }
   }
 
   Future<void> _addMember() async {
-    final selectedUser = await Navigator.push<User?>(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const SearchUsersScreen(),
-      ),
-    );
+    final selectedUser = await Navigator.push<User?>(context,
+        MaterialPageRoute(builder: (context) => const SearchUsersScreen()));
 
-    if (selectedUser != null && !_members.any((m) => m.id == selectedUser.id)) {
+    if (selectedUser == null || _members.any((m) => m.id == selectedUser.id)) {
+      return;
+    }
+
+    try {
+      final now = DateTime.now().toIso8601String();
+
+      // Добавляем в Supabase
+      await Supabase.instance.client.from('group_members').insert({
+        'group_id': _groupId,
+        'user_id': selectedUser.id,
+        'joined_at': now,
+        'updated_at': now,
+        'last_sync_at': now,
+      });
+
+      // Добавляем в локальный список
       setState(() {
         _members.add(selectedUser);
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${selectedUser.name} добавлен(а) в группу')),
-      );
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('${selectedUser.name} добавлен(а) в группу')));
+    } catch (e) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Не удалось добавить: $e')));
     }
   }
 
   void _removeMember(User user) {
     if (user.id == _currentUserId) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Нельзя удалить себя из группы')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Нельзя удалить себя из группы')));
       return;
     }
 
@@ -80,19 +133,26 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
         title: const Text('Удалить участника'),
         content: Text('Удалить ${user.name} из группы?'),
         actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')),
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
-          ),
-          TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              setState(() {
-                _members.remove(user);
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('${user.name} удалён(а) из группы')),
-              );
+              try {
+                await Supabase.instance.client
+                    .from('group_members')
+                    .delete()
+                    .match({'group_id': _groupId, 'user_id': user.id});
+
+                setState(() {
+                  _members.remove(user);
+                });
+
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(SnackBar(content: Text('${user.name} удалён(а) из группы')));
+              } catch (e) {
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(SnackBar(content: Text('Ошибка удаления: $e')));
+              }
             },
             child: const Text('Удалить'),
           ),
@@ -169,7 +229,7 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
                         separatorBuilder: (context, index) => const Divider(height: 1),
                         itemBuilder: (context, index) {
                           final user = _members[index];
-                          final isCreator = index == 0; // Пусть первый — создатель
+                          final isCreator = user.id == widget.group.creatorId;
                           final isMe = user.id == _currentUserId;
 
                           return ListTile(
@@ -192,8 +252,8 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
                             subtitle: Row(
                               children: [
                                 if (isCreator)
-                                  _buildLabel('Создатель', const Color(0xFF7e61f3))
-                                else if (isMe)
+                                  _buildLabel('Создатель', const Color(0xFF7e61f3)),
+                                if (isMe)
                                   _buildLabel('Вы', Colors.blue),
                               ],
                             ),

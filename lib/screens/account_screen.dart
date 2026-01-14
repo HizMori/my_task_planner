@@ -107,9 +107,20 @@ class _AccountScreenState extends State<AccountScreen> {
                 children: [
                   CircleAvatar(
                     radius: 40,
-                    backgroundImage: _user!.avatarUrl != null
-                        ? NetworkImage(_user!.avatarUrl!)
-                        : const AssetImage('assets/images/17404f5729d1a652c70d.png') as ImageProvider,
+                    backgroundColor: const Color(0xFF7e61f3).withOpacity(0.15),
+                    foregroundImage: _user!.avatarUrl != null ? NetworkImage(_user!.avatarUrl!) : null,
+                    child: _user!.avatarUrl != null
+                        ? null // Если аватар загрузился — он покажется, child не нужен
+                        : Text(
+                            _user!.name.isNotEmpty
+                                ? _user!.name.characters.take(1).toString().toUpperCase()
+                                : '?',
+                            style: const TextStyle(
+                              color: Color(0xFF7e61f3),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 20,
+                            ),
+                          ),
                   ),
                   const SizedBox(width: 16),
                   Column(
