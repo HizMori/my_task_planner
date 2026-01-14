@@ -271,7 +271,7 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
                                     style: isCreator
                                         ? theme.textTheme.bodyMedium?.copyWith(
                                             fontWeight: FontWeight.bold,
-                                            color: const Color(0xFF7e61f3),
+                                            color: const Color.fromARGB(255, 0, 0, 0),
                                           )
                                         : null,
                                   ),

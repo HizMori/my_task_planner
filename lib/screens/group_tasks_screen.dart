@@ -46,12 +46,17 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
   }
 
   Future<void> _createTask() async {
-    // Заглушка: вместо открытия экрана — показ уведомления
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('🟢 Создание задачи: функция в разработке'),
+     final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreateTaskScreen(initialGroupId: widget.group.id),
       ),
     );
+
+    if (result == true) {
+      // Обновляем список после создания
+      _loadTasks();
+    }
   }
 
   Future<void> _deleteTask(Task task) async {
@@ -74,131 +79,143 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.group.name),
+        title: Text('Задачи'),
         automaticallyImplyLeading: false,
       ),
-      body: Column(
+      body: Stack(
         children: [
-          // Счётчик задач
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                Text(
-                  'Задач: ${_tasks.length}',
-                  style: theme.textTheme.bodyMedium,
-                ),
-                const SizedBox(width: 16),
-                Text(
-                  'Выполнено: ${_tasks.where((t) => t.is_completed).length}',
-                  style: theme.textTheme.bodyMedium
-                      ?.copyWith(color: Colors.green),
-                ),
-              ],
-            ),
-          ),
-
-          // Кнопка "Добавить задачу"
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: ElevatedButton.icon(
-              onPressed: _createTask,
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Добавить задачу'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+          Column(
+            children: [
+              // Счётчик задач
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    Text(
+                      'Задач: ${_tasks.length}',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      'Выполнено: ${_tasks.where((t) => t.is_completed).length}',
+                      style: theme.textTheme.bodyMedium?.copyWith(color: Colors.green),
+                    ),
+                  ],
                 ),
               ),
-            ),
+
+              const SizedBox(height: 8),
+
+              // Список задач
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _tasks.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'Нет задач. Нажмите "Создать", чтобы добавить первую.',
+                              style: TextStyle(color: Colors.grey),
+                              textAlign: TextAlign.center,
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: _tasks.length,
+                            itemBuilder: (context, index) {
+                              final task = _tasks[index];
+                              return Dismissible(
+                                key: Key('task-${task.id}'),
+                                direction: DismissDirection.startToEnd,
+                                background: Container(
+                                  alignment: Alignment.centerLeft,
+                                  padding: const EdgeInsets.only(left: 16),
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Icon(Icons.delete, color: Colors.white),
+                                ),
+                                onDismissed: (direction) => _deleteTask(task),
+                                child: Card(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: ListTile(
+                                    title: Text(
+                                      task.title,
+                                      style: task.is_completed
+                                          ? theme.textTheme.bodyMedium?.copyWith(
+                                              decoration: TextDecoration.lineThrough,
+                                              color: Colors.grey,
+                                            )
+                                          : null,
+                                    ),
+                                    subtitle: Wrap(
+                                      spacing: 8,
+                                      children: [
+                                        _buildLabel(
+                                          _getPriorityText(task.priority),
+                                          _getPriorityColor(task.priority),
+                                        ),
+                                        _buildLabel(
+                                          _getCategoryText(task.category),
+                                          const Color(0xFF7e61f3),
+                                        ),
+                                      ],
+                                    ),
+                                    trailing: Checkbox(
+                                      value: task.is_completed,
+                                      onChanged: (value) => _toggleTaskCompletion(task),
+                                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    onTap: () async {
+                                      final result = await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => CreateTaskScreen(task: task),
+                                        ),
+                                      );
+                                      if (result == true) {
+                                        _loadTasks();
+                                      }
+                                    },
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+              ),
+            ],
           ),
 
-          const SizedBox(height: 8),
-
-          // Список задач
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _tasks.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'Нет задач. Нажмите "Добавить", чтобы создать первую.',
-                          style: TextStyle(color: Colors.grey),
-                          textAlign: TextAlign.center,
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: _tasks.length,
-                        itemBuilder: (context, index) {
-                          final task = _tasks[index];
-                          return Dismissible(
-                            key: Key('task-${task.id}'),
-                            direction: DismissDirection.startToEnd,
-                            background: Container(
-                              alignment: Alignment.centerLeft,
-                              padding: const EdgeInsets.only(left: 16),
-                              margin: const EdgeInsets.only(bottom: 8),
-                              decoration: BoxDecoration(
-                                color: Colors.red,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.delete,
-                                color: Colors.white,
-                              ),
-                            ),
-                            onDismissed: (direction) => _deleteTask(task),
-                            child: Card(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: ListTile(
-                                title: Text(
-                                  task.title,
-                                  style: task.is_completed
-                                      ? theme.textTheme.bodyMedium
-                                          ?.copyWith(
-                                              decoration:
-                                                  TextDecoration.lineThrough,
-                                              color: Colors.grey)
-                                      : null,
-                                ),
-                                subtitle: Wrap(
-                                  spacing: 8,
-                                  children: [
-                                    _buildLabel(
-                                      _getPriorityText(task.priority),
-                                      _getPriorityColor(task.priority),
-                                    ),
-                                    _buildLabel(
-                                      _getCategoryText(task.category),
-                                      const Color(0xFF7e61f3),
-                                    ),
-                                  ],
-                                ),
-                                trailing: Checkbox(
-                                  value: task.is_completed,
-                                  onChanged: (value) =>
-                                      _toggleTaskCompletion(task),
-                                  materialTapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                ),
-                                onTap: () {
-                                  // Можно добавить редактирование задачи
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                        content:
-                                            Text('Редактирование: ${task.title}')),
-                                  );
-                                },
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+          // Кнопка "Создать задачу" — внизу
+          Positioned(
+            bottom: 24,
+            left: 16,
+            right: 16,
+            child: ElevatedButton.icon(
+              onPressed: _createTask,
+              icon: const Icon(Icons.add, size: 20, color: Colors.white),
+              label: const Text(
+                'Создать задачу',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF7e61f3),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                minimumSize: const Size(double.infinity, 0),
+                elevation: 6,
+                shadowColor: const Color(0xFF7e61f3).withOpacity(0.3),
+              ),
+            ),
           ),
         ],
       ),

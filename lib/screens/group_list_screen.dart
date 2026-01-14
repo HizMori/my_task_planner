@@ -4,6 +4,7 @@ import '../services/database_service.dart';
 import 'group_details_screen.dart';
 import 'create_group_screen.dart';
 import '../widgets/online_status_icon.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class GroupListScreen extends StatefulWidget {
   const GroupListScreen({super.key});
@@ -145,7 +146,7 @@ class _GroupListScreenState extends State<GroupListScreen> {
                                 builder: (context, snapshot) {
                                   if (snapshot.hasData) {
                                     return Text(
-                                      '${snapshot.data} участников',
+                                      _formatMemberCount(snapshot.data!),
                                       style: const TextStyle(fontSize: 12),
                                     );
                                   }
@@ -167,17 +168,26 @@ class _GroupListScreenState extends State<GroupListScreen> {
   // Метод для подсчёта участников группы
   Future<int> _getMemberCount(String groupId) async {
     try {
-      // Предположим, у тебя есть метод, который возвращает участников
-      // Пока возвращаем заглушку — или можно добавить в БД таблицу group_members
-      // return await _db.getGroupMembersCount(groupId);
+      final response = await Supabase.instance.client
+          .from('group_members')
+          .select('user_id') // можно даже select('id') или select('*')
+          .eq('group_id', groupId)
+          .count(CountOption.exact);
 
-      // Временно: эмулируем 2–5 участников
-      return Future.delayed(
-        const Duration(milliseconds: 300),
-        () => 2 + (groupId.hashCode % 4),
-      );
+      return response.count ?? 0;
     } catch (e) {
-      return 1;
+      debugPrint('Ошибка при подсчёте участников: $e');
+      return 0;
+    }
+  }
+
+  String _formatMemberCount(int count) {
+    if (count % 10 == 1 && count % 100 != 11) {
+      return '$count участник';
+    } else if (count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 10 || count % 100 >= 20)) {
+      return '$count участника';
+    } else {
+      return '$count участников';
     }
   }
 }
