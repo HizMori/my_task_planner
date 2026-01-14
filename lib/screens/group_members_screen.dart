@@ -88,10 +88,22 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
   }
 
   Future<void> _addMember() async {
-    final selectedUser = await Navigator.push<User?>(context,
-        MaterialPageRoute(builder: (context) => const SearchUsersScreen()));
+    final Set<String> alreadyAddedIds = _members.map((user) => user.id).toSet();
 
-    if (selectedUser == null || _members.any((m) => m.id == selectedUser.id)) {
+    final selectedUser = await Navigator.push<User?>(context,
+        MaterialPageRoute(
+          builder: (context) => SearchUsersScreen(
+            alreadyAddedIds: alreadyAddedIds,
+          ),
+        ),
+    );
+
+    if (selectedUser == null) return;
+
+    if (_members.any((m) => m.id == selectedUser.id)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Этот пользователь уже в группе')),
+      );
       return;
     }
 
@@ -167,106 +179,145 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      body: Column(
+      body: Stack(
         children: [
-          // Заголовок
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: [
-                Text(
-                  'Участники',
-                  style: theme.textTheme.headlineSmall,
+          // Основной контент: список участников
+          Column(
+            children: [
+              // Заголовок
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Row(
+                  children: [
+                    Text(
+                      'Участники',
+                      style: theme.textTheme.headlineSmall,
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF7e61f3).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${_members.length}',
+                        style: const TextStyle(
+                          color: Color(0xFF7e61f3),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const Spacer(),
-                Text(
-                  '(${_members.length})',
-                  style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey),
-                ),
-              ],
-            ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // Список участников
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _members.isEmpty
+                        ? const Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.people_alt_outlined, size: 60, color: Colors.grey),
+                                SizedBox(height: 16),
+                                Text(
+                                  'Нет участников',
+                                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: _members.length,
+                            itemBuilder: (context, index) {
+                              final user = _members[index];
+                              final isCreator = user.id == widget.group.creatorId;
+                              final isMe = user.id == _currentUserId;
+
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                elevation: 2,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  side: BorderSide(
+                                    color: Colors.grey.withOpacity(0.1),
+                                  ),
+                                ),
+                                color: const Color(0xFFf8f5ff),
+                                child: ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                  leading: CircleAvatar(
+                                    backgroundColor: const Color(0xFF7e61f3).withOpacity(0.15),
+                                    child: Text(
+                                      user.name.characters.take(1).toString().toUpperCase(),
+                                      style: const TextStyle(
+                                        color: Color(0xFF7e61f3),
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  title: Text(
+                                    user.name,
+                                    style: isCreator
+                                        ? theme.textTheme.bodyMedium?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: const Color(0xFF7e61f3),
+                                          )
+                                        : null,
+                                  ),
+                                  subtitle: Wrap(
+                                    spacing: 8,
+                                    children: [
+                                      if (isCreator)
+                                        _buildLabel('Создатель', const Color(0xFF7e61f3)),
+                                      if (isMe)
+                                        _buildLabel('Вы', Colors.blue),
+                                    ],
+                                  ),
+                                  trailing: isMe || isCreator
+                                      ? null
+                                      : IconButton(
+                                          icon: const Icon(Icons.close, size: 20, color: Colors.grey),
+                                          onPressed: () => _removeMember(user),
+                                        ),
+                                ),
+                              );
+                            },
+                          ),
+              ),
+            ],
           ),
 
-          // Кнопка "Добавить участника"
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: ElevatedButton.icon(
-              onPressed: _addMember,
-              icon: const Icon(Icons.person_add, size: 18),
-              label: const Text('Добавить участника'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+          // Кнопка "Добавить участника" — внизу экрана
+          if (!_isLoading && _members.isNotEmpty)
+            Positioned(
+              bottom: 16,
+              left: 16,
+              right: 16,
+              child: ElevatedButton.icon(
+                onPressed: _addMember,
+                icon: const Icon(Icons.person_add, size: 18),
+                label: const Text('Добавить участника'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 4,
+                  shadowColor: const Color(0xFF7e61f3).withOpacity(0.3),
                 ),
               ),
             ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Список участников
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _members.isEmpty
-                    ? const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.people_alt_outlined, size: 60, color: Colors.grey),
-                            SizedBox(height: 16),
-                            Text(
-                              'Нет участников',
-                              style: TextStyle(fontSize: 16, color: Colors.grey),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: _members.length,
-                        separatorBuilder: (context, index) => const Divider(height: 1),
-                        itemBuilder: (context, index) {
-                          final user = _members[index];
-                          final isCreator = user.id == widget.group.creatorId;
-                          final isMe = user.id == _currentUserId;
-
-                          return ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: const Color(0xFF7e61f3).withOpacity(0.15),
-                              child: Text(
-                                user.name.characters.take(1).toString().toUpperCase(),
-                                style: const TextStyle(
-                                  color: Color(0xFF7e61f3),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            title: Text(
-                              user.name,
-                              style: isCreator
-                                  ? theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)
-                                  : null,
-                            ),
-                            subtitle: Row(
-                              children: [
-                                if (isCreator)
-                                  _buildLabel('Создатель', const Color(0xFF7e61f3)),
-                                if (isMe)
-                                  _buildLabel('Вы', Colors.blue),
-                              ],
-                            ),
-                            trailing: isMe || isCreator
-                                ? null
-                                : IconButton(
-                                    icon: const Icon(Icons.close, size: 20, color: Colors.grey),
-                                    onPressed: () => _removeMember(user),
-                                  ),
-                          );
-                        },
-                      ),
-          ),
         ],
       ),
     );

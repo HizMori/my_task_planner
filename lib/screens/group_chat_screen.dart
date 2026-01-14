@@ -155,6 +155,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       appBar: AppBar(
         title: const Text('Чат'),
         centerTitle: true,
+        automaticallyImplyLeading: false,
       ),
       body: Column(
         children: [

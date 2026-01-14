@@ -75,12 +75,7 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.group.name),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
+        automaticallyImplyLeading: false,
       ),
       body: Column(
         children: [
