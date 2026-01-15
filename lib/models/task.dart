@@ -54,16 +54,16 @@ class Task {
   // Фабричный метод для создания задачи из Map (нужен при загрузке из базы данных)
   factory Task.fromMap(Map<String, dynamic> map) {
   return Task(
-    id: map['id'], // Извлекаем ID
+    id: map['id']?.toString(), // Извлекаем ID
     title: map['title'], // Извлекаем название
     description: map['description'], // Извлекаем описание
     deadline: map['deadline'] != null ? DateTime.parse(map['deadline']) : null,
-    priority: map['priority'], // Извлекаем приоритет
-    category: map['category'], // Извлекаем категорию
-    is_completed: map['is_completed'] == 1, // Исправлено на is_completed
-    assigned_to: map['assigned_to'], // Исправлено на assigned_to
+    priority: map['priority'] ?? 'medium', // Извлекаем приоритет
+    category: map['category'] ?? 'other', // Извлекаем категорию
+    is_completed: map['is_completed'] == true, // Исправлено на is_completed
+    assigned_to: map['assigned_to'],
     groupId: map['group_id'],
-    creatorId: map['creator_id'],
+    creatorId: map['creator_id'].toString(),
     createdAt: map['created_at'] != null ? DateTime.parse(map['created_at']) : null,
     updatedAt: map['updated_at'] != null ? DateTime.parse(map['updated_at']) : null,
     last_sync_at: map['last_sync_at'] != null ? DateTime.parse(map['last_sync_at']) : null,
@@ -72,8 +72,41 @@ class Task {
 
   // Для Supabase (если нужно адаптировать, например, без INTEGER)
   Map<String, dynamic> toMapSupabase() {
-    return toMap();  // Можно расширить, если нужно
+    return {
+    'id': id,
+    'title': title,
+    'description': description,
+    'deadline': deadline?.toIso8601String(),
+    'priority': priority, // 'low', 'medium', 'high'
+    'category': category, // 'work', 'personal', 'study', 'other'
+    'is_completed': is_completed,
+    'assigned_to': assigned_to,
+    'group_id': groupId,
+    'creator_id': creatorId,
+    'created_at': createdAt?.toIso8601String(),
+    'updated_at': updatedAt?.toIso8601String(),
+    'last_sync_at': DateTime.now().toIso8601String(),
+    };  // Можно расширить, если нужно
   }
+
+  factory Task.fromSupabaseMap(Map<String, dynamic> map) {
+  return Task(
+    id: map['id'],
+    title: map['title'],
+    description: map['description'],
+    dueDate: map['due_date'],
+    deadline: map['deadline'] != null ? DateTime.parse(map['deadline']) : null,
+    priority: map['priority'] ?? 'medium',
+    category: map['category'] ?? 'other',
+    is_completed: map['is_completed'] == true,
+    assigned_to: map['assigned_to'],
+    groupId: map['group_id'],
+    creatorId: map['creator_id'],
+    createdAt: map['created_at'] != null ? DateTime.parse(map['created_at']) : null,
+    updatedAt: map['updated_at'] != null ? DateTime.parse(map['updated_at']) : null,
+    last_sync_at: DateTime.now(), // Обновляем при синхронизации
+  );
+}
 
   // Метод для создания копии задачи с измененными полями
   Task copyWith({

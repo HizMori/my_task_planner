@@ -16,38 +16,34 @@ class _TaskListScreenState extends State<TaskListScreen> {
   List<Task> _tasks = [];
   bool _isLoading = true;
 
-  @override
+ @override
   void initState() {
     super.initState();
-    _loadTasks();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _databaseService.syncTasksFromSupabase();
+      await _databaseService.syncTasksToSupabase();
+      _loadTasks();
+    });
   }
 
   Future<void> _loadTasks() async {
     try {
       final tasks = await _databaseService.readAllTasks();
-      setState(() {
-        _tasks = tasks;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _tasks = tasks;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Ошибка загрузки задач: $e')),
       );
-    }
-  }
-
-  Future<void> _createTask() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const CreateTaskScreen(),
-      ),
-    );
-    if (result == true) {
-      _loadTasks();
     }
   }
 

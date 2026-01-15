@@ -12,8 +12,94 @@ import 'package:uuid/uuid.dart';
 class DatabaseService {
   static final DatabaseService instance = DatabaseService._init();
   static Database? _database;
+  SupabaseClient get supabase => Supabase.instance.client;
 
   DatabaseService._init();
+
+  // Скачивание задач из Supabase → локальная БД
+  Future<void> syncTasksFromSupabase() async {
+    try {
+      // Получаем только те, что обновлялись позже последней синхронизации
+      final lastSync = await _getLastSyncTime('tasks');
+      final response = await supabase
+          .from('tasks')
+          .select()
+          .gt('updated_at', lastSync.toIso8601String());
+
+      final db = await database;
+
+      for (var item in response) {
+        final task = Task.fromSupabaseMap(item);
+        await db.insert(
+          'tasks',
+          task.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+
+      // Обновляем время последней синхронизации
+      await _setLastSyncTime('tasks', DateTime.now());
+    } catch (e) {
+      print('Ошибка синхронизации задач: $e');
+    }
+  }
+
+  // Отправка локальных изменений в Supabase
+  Future<void> syncTasksToSupabase() async {
+    try {
+      final db = await database;
+      final result = await db.query(
+        'tasks',
+        where: 'updated_at > last_sync_at OR last_sync_at IS NULL',
+      );
+
+      final tasksToSync = result.map((e) => Task.fromMap(e)).toList();
+
+      for (var task in tasksToSync) {
+        final taskData = task.toMapSupabase();
+
+        if (task.id == null) continue;
+
+        await supabase.from('tasks').upsert(taskData);
+        await db.update(
+          'tasks',
+          {'last_sync_at': DateTime.now().toIso8601String()},
+          where: 'id = ?',
+          whereArgs: [task.id],
+        );
+      }
+    } catch (e) {
+      print('Ошибка выгрузки задач в Supabase: $e');
+    }
+  }
+
+  // Вспомогательные методы для last_sync_at
+  Future<DateTime> _getLastSyncTime(String type) async {
+    final db = await database;
+    final result = await db.query(
+      'sync_state',
+      where: 'type = ?',
+      whereArgs: [type],
+    );
+
+    if (result.isNotEmpty) {
+      final time = result.first['last_sync_at'] as String?;
+      if (time != null) return DateTime.parse(time);
+    }
+    return DateTime(2020); // Первичная синхронизация
+  }
+
+  Future<void> _setLastSyncTime(String type, DateTime time) async {
+    final db = await database;
+    await db.insert(
+      'sync_state',
+      {
+        'type': type,
+        'last_sync_at': time.toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -59,7 +145,6 @@ class DatabaseService {
   }
 
   Future<List<User>> searchGlobalUsers(String query) async {
-    final supabase = Supabase.instance.client;
     try {
       final response = await supabase
           .from('users')
@@ -73,16 +158,6 @@ class DatabaseService {
       return [];
     }
   }
-
-  // Миграция БД (для добавления новых полей)
-  /*
-  Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      // Добавляем supabase_user_id в users
-      await db.execute('ALTER TABLE users ADD COLUMN supabase_user_id TEXT;');
-    }
-  }
-  */
 
   // Создание таблиц (выполняется при первой установке или после удаления)
   Future _createDB(Database db, int version) async {
@@ -102,6 +177,13 @@ class DatabaseService {
         creator_id TEXT,
         created_at TEXT,
         updated_at TEXT,
+        last_sync_at TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE sync_state (
+        type TEXT PRIMARY KEY,
         last_sync_at TEXT
       )
     ''');
@@ -225,6 +307,15 @@ class DatabaseService {
   Future<int> deleteTask(String? id) async {
     if (id == null) return 0; // Если id нет — нечего удалять
     final db = await database;
+    // 1. Удаляем из Supabase
+    try {
+      await supabase.from('tasks').delete().eq('id', id);
+    } catch (e) {
+      print('Ошибка удаления задачи в Supabase: $e');
+      // Не блокируем локальное удаление, если Supabase недоступен
+    }
+
+    // 2. Удаляем из локальной БД
     return await db.delete('tasks', where: 'id = ?', whereArgs: [id]);
   }
 

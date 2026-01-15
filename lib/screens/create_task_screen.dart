@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/task.dart';
 import '../services/database_service.dart';
 import '../models/group.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 
 class CreateTaskScreen extends StatefulWidget {
   // Добавляем возможность передать группу по умолчанию
@@ -22,7 +23,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   String _priority = 'medium';
   String _category = 'работа';
   String? _groupId; // null — значит личная задача
-  String _creatorId = 'current_user'; // Замени на реальный ID позже
+  late String _creatorId; // реальный ID
 
   final DatabaseService _databaseService = DatabaseService.instance;
 
@@ -44,6 +45,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   @override
   void initState() {
     super.initState();
+    _loadUserId();
     _loadGroups();
     if (widget.task != null) {
     // Режим редактирования
@@ -67,6 +69,20 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     _titleController.dispose();
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadUserId() async {
+    try {
+      final response = await Supabase.instance.client.auth.getUser();
+      final uid = response.user?.id;
+      if (mounted) {
+        setState(() {
+          _creatorId = uid!;
+        });
+      }
+    } catch (e) {
+      print('Ошибка получения пользователя: $e');
+    }
   }
 
   Future<void> _loadGroups() async {
@@ -465,6 +481,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                             updatedAt: now,
                           )
                         : Task(
+                            id: _databaseService.uuid.v4(),
                             title: _titleController.text.trim(),
                             description: _descriptionController.text,
                             deadline: _deadline,
@@ -477,11 +494,14 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                             last_sync_at: null,
                           );
 
+                    // Сохраняем в локальную БД
                     if (isEditing) {
                       await _databaseService.updateTask(task);
                     } else {
                       await _databaseService.createTask(task);
                     }
+
+                    await _databaseService.syncTasksToSupabase();
 
                     // Сброс формы только при создании
                     if (!isEditing) {
@@ -490,7 +510,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                         _descriptionController.text = '';
                         _deadline = null;
                         _priority = 'medium';
-                        _category = 'работа';
+                        _category = 'other';
                         _groupId = null;
                       });
                       _formKey.currentState?.reset();

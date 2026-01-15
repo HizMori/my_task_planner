@@ -42,6 +42,7 @@ class MyApp extends StatelessWidget {
     final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
 
     if (isFirstLaunch) {
+      await prefs.setBool('isFirstLaunch', false);
       return const WelcomeScreen();
     }
 
