@@ -28,10 +28,12 @@ class _TaskListScreenState extends State<TaskListScreen> {
 
   Future<void> _loadTasks() async {
     try {
-      final tasks = await _databaseService.readAllTasks();
+      final allTasks = await _databaseService.readAllTasks();
+      // Фильтруем: только задачи БЕЗ groupId (личные)
+      final personalTasks = allTasks.where((task) => task.groupId == null).toList();
       if (mounted) {
         setState(() {
-          _tasks = tasks;
+          _tasks = personalTasks;
           _isLoading = false;
         });
       }
@@ -56,9 +58,28 @@ class _TaskListScreenState extends State<TaskListScreen> {
   }
 
   Future<void> _toggleTaskCompletion(Task task) async {
-    final updatedTask = task.copyWith(is_completed: !task.is_completed);
+    // Обновляем состояние в памяти сразу
+    final now = DateTime.now();
+    final updatedTask = task.copyWith(
+      is_completed: !task.is_completed,
+      updatedAt: now, // Обязательно обновляем
+    );
+
+    // Находим индекс задачи
+    final index = _tasks.indexOf(task);
+    if (index == -1) return;
+
+    // Обновляем в списке
+    if (mounted) {
+      setState(() {
+        _tasks[index] = updatedTask;
+      });
+    }
+
+    // Асинхронно обновляем в базе
     await _databaseService.updateTask(updatedTask);
-    _loadTasks();
+    // Не обязательно вызывать _loadTasks() — мы уже обновили UI
+    await _databaseService.syncTasksToSupabase(); // Отправляем изменения в Supabase
   }
 
   @override

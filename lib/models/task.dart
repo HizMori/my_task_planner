@@ -60,7 +60,7 @@ class Task {
     deadline: map['deadline'] != null ? DateTime.parse(map['deadline']) : null,
     priority: map['priority'] ?? 'medium', // Извлекаем приоритет
     category: map['category'] ?? 'other', // Извлекаем категорию
-    is_completed: map['is_completed'] == true, // Исправлено на is_completed
+    is_completed: map['is_completed'] == 1, // Исправлено на is_completed
     assigned_to: map['assigned_to'],
     groupId: map['group_id'],
     creatorId: map['creator_id'].toString(),

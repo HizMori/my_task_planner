@@ -22,7 +22,11 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
   @override
   void initState() {
     super.initState();
-    _loadTasks();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _db.syncTasksFromSupabase();
+      await _db.syncTasksToSupabase();
+      _loadTasks();
+    });
   }
 
   Future<void> _loadTasks() async {
@@ -31,14 +35,19 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
       final groupTasks = allTasks
           .where((task) => task.groupId == widget.group.id)
           .toList();
-      setState(() {
-        _tasks = groupTasks;
-        _isLoading = false;
-      });
+      
+      if (mounted) {
+        setState(() {
+          _tasks = groupTasks;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Ошибка загрузки задач: $e')),
       );
@@ -68,9 +77,28 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
   }
 
   Future<void> _toggleTaskCompletion(Task task) async {
-    final updatedTask = task.copyWith(is_completed: !task.is_completed);
+    // Обновляем состояние в памяти сразу
+    final now = DateTime.now();
+    final updatedTask = task.copyWith(
+      is_completed: !task.is_completed,
+      updatedAt: now, // Обязательно обновляем
+    );
+
+    // Находим индекс задачи
+    final index = _tasks.indexOf(task);
+    if (index == -1) return;
+
+    // Обновляем в списке
+    if (mounted) {
+      setState(() {
+        _tasks[index] = updatedTask;
+      });
+    }
+
+    // Асинхронно обновляем в базе
     await _db.updateTask(updatedTask);
-    _loadTasks(); // Обновляем список
+    await _db.syncTasksToSupabase(); // Отправляем изменения в Supabase
+    // Не обязательно вызывать _loadTasks() — мы уже обновили UI
   }
 
   @override

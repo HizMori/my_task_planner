@@ -18,6 +18,7 @@ import 'screens/create_group_screen.dart';
 import 'services/auth_service.dart';
 import 'services/database_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -81,6 +82,16 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Task Planner',
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('ru', 'RU'),
+        Locale('en', 'US'),
+      ],
+      locale: const Locale('ru'),
       theme: ThemeData(
         brightness: Brightness.light,
         primaryColor: const Color(0xFF7e61f3),
@@ -93,6 +104,11 @@ class MyApp extends StatelessWidget {
           ),
           headlineSmall: GoogleFonts.poppins(
             fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: const Color(0xFF000000),
+          ),
+          headlineMedium: GoogleFonts.poppins( 
+            fontSize: 22,
             fontWeight: FontWeight.bold,
             color: const Color(0xFF000000),
           ),
@@ -167,6 +183,11 @@ class MyApp extends StatelessWidget {
           ),
           headlineSmall: GoogleFonts.poppins(
             fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: const Color(0xFF000000),
+          ),
+          headlineMedium: GoogleFonts.poppins( 
+            fontSize: 22,
             fontWeight: FontWeight.bold,
             color: const Color(0xFF000000),
           ),
