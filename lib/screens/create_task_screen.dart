@@ -629,11 +629,11 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
           ),
         );
       }).toList(),
-      initialValue: _groupId,
+      initialValue: _groupId, // <-- важно: чтобы подсветить текущее значение
       color: Colors.white,
     );
 
-    if (selectedId != null) {
+    if (selectedId != _groupId) {
       setState(() {
         _groupId = selectedId;
       });

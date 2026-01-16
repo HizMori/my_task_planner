@@ -65,7 +65,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-
   String _formatDateHeader(DateTime date) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -110,7 +109,6 @@ class _HomeScreenState extends State<HomeScreen> {
   String _formatTime(DateTime time) {
     return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
   }
-
   
   @override
   Widget build(BuildContext context) {
