@@ -40,15 +40,18 @@ class _HomeScreenState extends State<HomeScreen> {
     final userId = await AuthService.instance.getCurrentUserId();
     if (userId != null) {
       final user = await _db.readUserById(userId);
-      final allTasks = await _db.readAllTasks();
 
-      // Фильтруем: невыполненные, с дедлайном, сортируем по дате
-      final upcoming = allTasks
+      final userTasks = await _db.readUserTasks(userId);
+
+      // Фильтруем: только персональные задачи (без groupId)
+      final personalTasks = userTasks.where((task) => task.groupId == null).toList();
+
+      // Фильтруем невыполненные с дедлайном
+      final upcoming = personalTasks
           .where((task) => !task.is_completed && task.deadline != null)
           .toList()
         ..sort((a, b) => a.deadline!.compareTo(b.deadline!));
 
-      // Оставим только ближайшие 10 задач
       _upcomingTasks = upcoming.take(10).toList();
 
       setState(() {
@@ -61,6 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     }
   }
+
 
   String _formatDateHeader(DateTime date) {
     final now = DateTime.now();

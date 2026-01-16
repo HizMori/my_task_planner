@@ -68,6 +68,9 @@ class AuthService {
 
       // Синхронизируем в локальную БД
       await DatabaseService.instance.syncUserFromSupabase(userResponse);
+      await DatabaseService.instance.syncGroupsFromSupabase();
+      await DatabaseService.instance.syncGroupMembersFromSupabase();
+      await DatabaseService.instance.syncTasksFromSupabase();
     } catch (e) {
       print('Ошибка синхронизации пользователя: $e');
     }

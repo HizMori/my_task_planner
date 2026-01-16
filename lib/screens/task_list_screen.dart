@@ -3,6 +3,7 @@ import '../models/task.dart';
 import '../services/database_service.dart';
 import '../widgets/online_status_icon.dart';
 import 'create_task_screen.dart';
+import '../services/auth_service.dart';
 
 class TaskListScreen extends StatefulWidget {
   const TaskListScreen({super.key});
@@ -28,9 +29,19 @@ class _TaskListScreenState extends State<TaskListScreen> {
 
   Future<void> _loadTasks() async {
     try {
-      final allTasks = await _databaseService.readAllTasks();
-      // Фильтруем: только задачи БЕЗ groupId (личные)
-      final personalTasks = allTasks.where((task) => task.groupId == null).toList();
+      final userId = await AuthService.instance.getCurrentUserId();
+      if (userId == null) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
+      final allUserTasks = await _databaseService.readUserTasks(userId);
+      final personalTasks = allUserTasks.where((task) => task.groupId == null).toList();
+
       if (mounted) {
         setState(() {
           _tasks = personalTasks;

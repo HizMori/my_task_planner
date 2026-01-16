@@ -3,6 +3,7 @@ import '../models/group.dart';
 import '../services/database_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import '/screens/group_list_screen.dart';
+import '../models/group_member.dart';
 
 
 class CreateGroupScreen extends StatefulWidget {
@@ -66,6 +67,15 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
         );
         // Сохраняем в локальную БД
         await _db.createGroup(group);
+
+        // 2. Добавляем создателя в локальные участники
+        await _db.createGroupMember(GroupMember(
+          groupId: groupId,
+          userId: userId,
+          joinedAt: now,
+          updatedAt: now,
+          lastSyncAt: now,
+        ));
 
         // Отправляем в Supabase
         await Supabase.instance.client.from('groups').insert({

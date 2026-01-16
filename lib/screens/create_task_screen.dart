@@ -3,6 +3,8 @@ import '../models/task.dart';
 import '../services/database_service.dart';
 import '../models/group.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
+import '../models/user.dart';
+import 'package:collection/collection.dart';
 
 class CreateTaskScreen extends StatefulWidget {
   // Добавляем возможность передать группу по умолчанию
@@ -63,7 +65,6 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
       _groupId = widget.initialGroupId;
     }
   }
-
   @override
   void dispose() {
     _titleController.dispose();
@@ -87,19 +88,33 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
 
   Future<void> _loadGroups() async {
     try {
-      final groups = await _databaseService.readAllGroups();
+      final response = await Supabase.instance.client.auth.getUser();
+      final userId = response.user?.id;
+      if (userId == null) {
+        if (mounted) {
+          setState(() {
+            _isLoadingGroups = false;
+          });
+        }
+        return;
+      }
+
+      final userGroups = await _databaseService.readUserGroups(userId);
+
       setState(() {
-        _groups = groups;
-        _groupId = widget.initialGroupId; // Устанавливаем группу, если передана
+        _groups = userGroups;
+        // Сохраняем группу задачи, если редактируем
+        if (widget.task != null && widget.task!.groupId != null) {
+          _groupId = widget.task!.groupId;
+        } else {
+          _groupId = widget.initialGroupId;
+        }
         _isLoadingGroups = false;
       });
     } catch (e) {
       setState(() {
         _isLoadingGroups = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ошибка загрузки групп')),
-      );
     }
   }
 
@@ -176,6 +191,12 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
       'другое' => 'Другое',
       _ => value,
     };
+  }
+
+  String _getGroupName() {
+    if (_groupId == null) return 'Личная задача';
+    final group = _groups.firstWhereOrNull((g) => g.id == _groupId);
+    return group?.name ?? 'Группа';
   }
 
   @override
@@ -438,9 +459,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          _groupId == null
-                              ? 'Личная задача'
-                              : _groups.firstWhere((g) => g.id == _groupId).name,
+                          _getGroupName(),
                           style: theme.textTheme.bodyMedium,
                         ),
                         const Icon(Icons.arrow_drop_down),

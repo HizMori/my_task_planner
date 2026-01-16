@@ -19,7 +19,10 @@ class DatabaseService {
   // Скачивание задач из Supabase → локальная БД
   Future<void> syncTasksFromSupabase() async {
     try {
-      // Получаем только те, что обновлялись позже последней синхронизации
+      final supabaseUser = await supabase.auth.getUser();
+      final myId = supabaseUser.user?.id;
+      if (myId == null) return;
+
       final lastSync = await _getLastSyncTime('tasks');
       final response = await supabase
           .from('tasks')
@@ -37,11 +40,28 @@ class DatabaseService {
         );
       }
 
-      // Обновляем время последней синхронизации
       await _setLastSyncTime('tasks', DateTime.now());
     } catch (e) {
       print('Ошибка синхронизации задач: $e');
     }
+  }
+
+  Future<void> insertGroupMember(GroupMember member) async {
+    final db = await database;
+    await db.insert(
+      'group_members',
+      member.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> deleteGroupMemberLocally(String groupId, String userId) async {
+    final db = await database;
+    await db.delete(
+      'group_members',
+      where: 'group_id = ? AND user_id = ?',
+      whereArgs: [groupId, userId],
+    );
   }
 
   // Отправка локальных изменений в Supabase
@@ -71,6 +91,127 @@ class DatabaseService {
     } catch (e) {
       print('Ошибка выгрузки задач в Supabase: $e');
     }
+  }
+
+  Future<void> syncGroupMembersFromSupabase() async {
+    try {
+      final lastSync = await _getLastSyncTime('group_members');
+      final response = await supabase
+          .from('group_members')
+          .select()
+          .gt('updated_at', lastSync.toIso8601String());
+
+      final db = await database;
+
+      for (var item in response) {
+        final member = GroupMember.fromMap(item);
+        await db.insert(
+          'group_members',
+          member.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace, // Обновляет или вставляет
+        );
+      }
+
+      await _setLastSyncTime('group_members', DateTime.now());
+    } catch (e) {
+      print('Ошибка синхронизации участников групп: $e');
+    }
+  }
+
+  Future<void> syncGroupMembersToSupabase() async {
+    try {
+      final db = await database;
+      final result = await db.query(
+        'group_members',
+        where: 'updated_at > last_sync_at OR last_sync_at IS NULL',
+      );
+
+      final membersToSync = result.map((e) => GroupMember.fromMap(e)).toList();
+
+      for (var member in membersToSync) {
+        final data = {
+          'group_id': member.groupId,
+          'user_id': member.userId,
+          'joined_at': member.joinedAt.toIso8601String(),
+          'updated_at': member.updatedAt.toIso8601String(),
+          'last_sync_at': DateTime.now().toIso8601String(),
+        };
+
+        await supabase.from('group_members').upsert(data);
+
+        await db.update(
+          'group_members',
+          {'last_sync_at': DateTime.now().toIso8601String()},
+          where: 'group_id = ? AND user_id = ?',
+          whereArgs: [member.groupId, member.userId],
+        );
+      }
+    } catch (e) {
+      print('Ошибка выгрузки участников в Supabase: $e');
+    }
+  }
+
+  Future<void> syncGroupsFromSupabase() async {
+    try {
+      final lastSync = await _getLastSyncTime('groups');
+      final response = await supabase
+          .from('groups')
+          .select()
+          .gt('updated_at', lastSync.toIso8601String());
+
+      final db = await database;
+
+      for (var item in response) {
+        final group = Group.fromMap(item);
+        await db.insert(
+          'groups',
+          group.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+
+      await _setLastSyncTime('groups', DateTime.now());
+    } catch (e) {
+      print('Ошибка синхронизации групп: $e');
+    }
+  }
+
+  Future<List<Task>> readUserTasks(String userId) async {
+    final db = await database;
+
+    // Получаем ID групп, в которых состоит пользователь
+    final userGroups = await readUserGroups(userId);
+    final groupIds = userGroups.map((g) => g.id).toList();
+
+    // Формируем запрос
+    final List<String> whereParts = [];
+    final List<Object> whereArgs = [];
+
+    // Условия:
+    // 1. Создатель — я
+    whereParts.add('creator_id = ?');
+    whereArgs.add(userId);
+
+    // 2. Назначен мне
+    whereParts.add('assigned_to LIKE ?');
+    whereArgs.add('%$userId%');
+
+    // 3. Принадлежит моей группе
+    if (groupIds.isNotEmpty) {
+      final groupPlaceholders = List.filled(groupIds.length, '?').join(',');
+      whereParts.add('group_id IN ($groupPlaceholders)');
+      whereArgs.addAll(groupIds);
+    }
+
+    final whereClause = whereParts.join(' OR ');
+
+    final result = await db.query(
+      'tasks',
+      where: whereClause,
+      whereArgs: whereArgs,
+    );
+
+    return result.map((map) => Task.fromMap(map)).toList();
   }
 
   // Вспомогательные методы для last_sync_at
@@ -277,6 +418,19 @@ class DatabaseService {
     );
   }
 
+  // Возвращает группы, в которых состоит пользователь
+  Future<List<Group>> readUserGroups(String userId) async {
+    final db = await database;
+    final result = await db.rawQuery('''
+      SELECT g.* 
+      FROM groups g
+      INNER JOIN group_members gm ON g.id = gm.group_id
+      WHERE gm.user_id = ?
+      ORDER BY g.name
+    ''', [userId]);
+    return result.map((map) => Group.fromMap(map)).toList();
+  }
+
   final _uuid = Uuid();
   Uuid get uuid => _uuid;
 
@@ -419,15 +573,10 @@ class DatabaseService {
     return member;
   }
 
-  Future<List<GroupMember>> readGroupMembers(int groupId) async {
+  Future<List<GroupMember>> readGroupMembers(String groupId) async {
     final db = await database;
     final result = await db.query('group_members', where: 'group_id = ?', whereArgs: [groupId]);
     return result.map((map) => GroupMember.fromMap(map)).toList();
-  }
-
-  Future<int> deleteGroupMember(int groupId, int userId) async {
-    final db = await database;
-    return await db.delete('group_members', where: 'group_id = ? AND user_id = ?', whereArgs: [groupId, userId]);
   }
 
   // Удалить всех участников группы

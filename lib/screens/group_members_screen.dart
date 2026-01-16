@@ -4,6 +4,7 @@ import '../models/user.dart';
 import '../services/database_service.dart';
 import 'search_users_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
+import '../models/group_member.dart';
 
 class GroupMembersScreen extends StatefulWidget {
   final Group group;
@@ -108,21 +109,23 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
     }
 
     try {
-      final now = DateTime.now().toIso8601String();
+      final now = DateTime.now();
+      final newMember = GroupMember(
+        groupId: _groupId,
+        userId: selectedUser.id,
+        joinedAt: now,
+        updatedAt: now,
+        lastSyncAt: now,
+      );
 
       // Добавляем в Supabase
-      await Supabase.instance.client.from('group_members').insert({
-        'group_id': _groupId,
-        'user_id': selectedUser.id,
-        'joined_at': now,
-        'updated_at': now,
-        'last_sync_at': now,
-      });
+      await Supabase.instance.client.from('group_members').insert(newMember.toMap());
 
-      // Добавляем в локальный список
-      setState(() {
-        _members.add(selectedUser);
-      });
+      // Добавляем в локальную БД
+      await _db.insertGroupMember(newMember); // ← новый метод
+
+      // Обновляем UI
+      await _loadData(); // ← обновляем данные после добавления
 
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('${selectedUser.name} добавлен(а) в группу')));
@@ -154,6 +157,8 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
                     .from('group_members')
                     .delete()
                     .match({'group_id': _groupId, 'user_id': user.id});
+                
+                await _db.deleteGroupMemberLocally(_groupId, user.id);
 
                 setState(() {
                   _members.remove(user);

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
 import '../models/group.dart';
 import '../services/database_service.dart';
 import 'group_details_screen.dart';
@@ -26,7 +27,20 @@ class _GroupListScreenState extends State<GroupListScreen> {
 
   Future<void> _loadGroups() async {
     try {
-      final groups = await _db.readAllGroups();
+      // Получаем ID текущего пользователя
+      final userId = await AuthService.instance.getCurrentUserId();
+      if (userId == null) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не удалось определить пользователя')),
+        );
+        return;
+      }
+
+      // Загружаем ТОЛЬКО группы, где пользователь состоит
+      final groups = await _db.readUserGroups(userId);
       setState(() {
         _groups = groups;
         _isLoading = false;
