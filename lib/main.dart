@@ -310,8 +310,8 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
     );
     _mainScreens = [
       const HomeScreen(),
-      const TaskListScreen(),
-      const GroupListScreen(),
+      TaskListScreen(),
+      GroupListScreen(),
       const Scaffold(),
     ];
     _screenStack.add(_mainScreens[_selectedIndex]);

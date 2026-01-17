@@ -4,6 +4,7 @@ class Message {
   final String senderId;
   final String content;
   final DateTime sentAt;
+  final String? senderName;
 
   Message({
     required this.id,
@@ -11,6 +12,7 @@ class Message {
     required this.senderId,
     required this.content,
     required this.sentAt,
+    this.senderName,
   });
 
   Map<String, dynamic> toMap() {
@@ -20,6 +22,7 @@ class Message {
       'sender_id': senderId,
       'content': content,
       'sent_at': sentAt.toIso8601String(),
+      'sender_name': senderName ?? 'Пользователь',
     };
   }
 
@@ -30,6 +33,7 @@ class Message {
       senderId: map['sender_id'],
       content: map['content'],
       sentAt: DateTime.parse(map['sent_at']),
+      senderName: map['sender_name']?.toString() ?? 'Пользователь',
     );
   }
 
@@ -40,6 +44,7 @@ class Message {
       senderId: senderId ?? this.senderId,
       content: content ?? this.content,
       sentAt: sentAt ?? this.sentAt,
+      senderName: senderName,
     );
   }
 }

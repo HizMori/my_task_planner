@@ -300,6 +300,18 @@ class DatabaseService {
     }
   }
 
+  // Отправка локального сообщения в Supabase (например, при повторном подключении)
+  Future<void> syncMessageToSupabase(Message message) async {
+    try {
+      final data = message.toMap();
+      data['sent_at'] = message.sentAt.toIso8601String(); // Убедимся, что время — строка
+      await supabase.from('messages').upsert(data);
+    } catch (e) {
+      print('Ошибка синхронизации сообщения в Supabase: $e');
+    }
+  }
+
+
   // Создание таблиц (выполняется при первой установке или после удаления)
   Future _createDB(Database db, int version) async {
     // Таблица задач (расширенная)
@@ -374,7 +386,8 @@ class DatabaseService {
         group_id TEXT,
         sender_id TEXT,
         content TEXT NOT NULL,
-        sent_at TEXT
+        sent_at TEXT,
+        sender_name TEXT
       )
     ''');
 

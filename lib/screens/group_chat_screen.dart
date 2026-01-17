@@ -5,6 +5,8 @@ import '../../models/message.dart';
 import '../../models/user.dart';
 import '../../services/database_service.dart';
 import '../../services/auth_service.dart';
+import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
 class GroupChatScreen extends StatefulWidget {
   // Передаём ID группы — важно!
@@ -27,6 +29,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   String? _currentUserName;
   bool _isLoading = true;
   StreamSubscription? _subscription;
+  final Map<String, String> _userNames = {};
 
   @override
   void initState() {
@@ -34,6 +37,59 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     _loadUserData();
     _loadMessages();
     _subscribeToMessages();
+    _startPeriodicSync();
+  }
+
+  Timer? _syncTimer;
+
+  void _startPeriodicSync() {
+    _syncTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      _syncMessagesFromSupabase();
+    });
+  }
+
+  Future<void> _syncMessagesFromSupabase() async {
+    try {
+      final lastMessageTime = _messages.isEmpty
+          ? DateTime(2020)
+          : _messages.last.sentAt;
+
+      final response = await Supabase.instance.client
+          .from('messages')
+          .select('*, users(name)')
+          .eq('group_id', widget.groupId)
+          .gt('sent_at', lastMessageTime.toIso8601String())
+          .order('sent_at', ascending: true);
+
+      for (final m in response) {
+        final id = m['id'] as String;
+        final name = m['users']?['name'] as String? ?? 'Пользователь';
+        _userNames[m['sender_id']] = name;
+
+        final message = Message(
+          id: id,
+          groupId: m['group_id'],
+          senderId: m['sender_id'],
+          content: m['content'],
+          sentAt: DateTime.parse(m['sent_at']),
+          senderName: name,
+        );
+
+        // ✅ Сохраняем в локальную БД
+        await _db.createMessage(message);
+
+        // ✅ Добавляем в UI, если ещё нет
+        if (!_messages.any((msg) => msg.id == id)) {
+          if (mounted) {
+            setState(() {
+              _messages.add(message);
+            });
+          }
+        }
+      }
+    } catch (e) {
+      print('Ошибка фоновой синхронизации: $e');
+    }
   }
 
   void _subscribeToMessages() {
@@ -41,25 +97,52 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         .from('messages')
         .stream(primaryKey: ['id'])
         .eq('group_id', widget.groupId)
-        .listen((List<Map<String, dynamic>> payload) {
-      // Приходит список, но нас интересует только новое сообщение
+        .listen((List<Map<String, dynamic>> payload) async {
       for (final change in payload) {
-        if (change['group_id'] == widget.groupId) {
-          final newMessage = Message.fromMap({
-            'id': change['id'],
-            'group_id': change['group_id'],
-            'sender_id': change['sender_id'],
-            'content': change['content'],
-            'sent_at': change['sent_at'],
-          });
+        final String event = change['event'] as String;
+        final Map<String, dynamic>? newData = change['new'] as Map<String, dynamic>?;
 
-          setState(() {
-            _messages.add(newMessage);
-          });
+        if (event == 'INSERT' && newData != null) {
+          final String senderId = newData['sender_id'] as String? ?? 'unknown';
+          String? rawName = (newData['users'] as Map?)?['name'] as String?;
 
-          _scrollToBottom();
+          if (rawName == null || rawName.isEmpty) {
+            if (_userNames.containsKey(senderId)) {
+              rawName = _userNames[senderId];
+            } else {
+              final user = await _db.readUserById(senderId);
+              rawName = user?.name;
+            }
+          }
+
+          final String senderName = rawName ?? _userNames[senderId] ?? 'Пользователь';
+          _userNames[senderId] = senderName;
+
+          final newMessage = Message(
+            id: newData['id'],
+            groupId: newData['group_id'],
+            senderId: senderId,
+            content: newData['content'],
+            sentAt: DateTime.parse(newData['sent_at'] as String),
+            senderName: senderName,
+          );
+
+          // ✅ Сохраняем в локальную БД!
+          _db.createMessage(newMessage).then((_) {
+            // Только после сохранения — обновляем UI
+            if (mounted) {
+              setState(() {
+                _messages.add(newMessage);
+              });
+            }
+            _scrollToBottom();
+          }).catchError((e) {
+            print('Ошибка сохранения сообщения в локальную БД: $e');
+          });
         }
       }
+    }, onError: (error) {
+      print('Stream error: $error');
     });
   }
 
@@ -70,43 +153,123 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
       // Получаем имя из локальной БД (если есть)
       final user = await _db.readUserById(_currentUserId ?? '');
-      _currentUserName = user?.name ?? 'Аноним';
+       _currentUserName = user?.name ?? 'Вы';
+    // ✅ Загрузим имена всех участников группы
+      await _preloadUserNames();
     } catch (e) {
-      _currentUserName = 'Пользователь';
+      _currentUserName = 'Вы';
+    }
+  }
+
+  Future<void> _preloadUserNames() async {
+    try {
+      final members = await Supabase.instance.client
+          .from('group_members')
+          .select('user_id')
+          .eq('group_id', widget.groupId);
+
+      final userIds = members.map((m) => m['user_id']).whereType<String>().toList();
+      if (userIds.isEmpty) return;
+
+      final users = await Supabase.instance.client
+          .from('users')
+          .select('id, name')
+          .filter('id', 'in', userIds);
+
+      for (var u in users) {
+        _userNames[u['id']] = u['name'];
+      }
+    } catch (e) {
+      print('Ошибка загрузки имён пользователей: $e');
     }
   }
 
   Future<void> _loadMessages() async {
+    print('🔄 Начинаем загрузку сообщений для группы: ${widget.groupId}');
     try {
-      final response = await Supabase.instance.client
+      print('✅ Проверяем локальные сообщения...');
+      // Сначала загружаем из локальной БД (оффлайн-доступ)
+      final localMessages = await _db.readMessagesForGroup(widget.groupId);
+      final localMap = {for (var m in localMessages) m.id: m};
+      final Set<String> localIds = localMap.keys.toSet();
+      print('📦 Локальных сообщений: ${localMessages.length}');
+      print('☁️ Запрашиваем из Supabase...');
+      // Загружаем из Supabase
+      final remoteResponse = await Supabase.instance.client
           .from('messages')
-          .select('*, users(name)')
+          .select('id, group_id, sender_id, content, sent_at')
           .eq('group_id', widget.groupId)
           .order('sent_at', ascending: true);
 
-      final messages = (response as List)
-          .map((m) => Message.fromMap({
-                'id': m['id'],
-                'group_id': m['group_id'],
-                'sender_id': m['sender_id'],
-                'content': m['content'],
-                'sent_at': m['sent_at'],
-              }))
-          .toList();
+      print('✅ Supabase вернул ${remoteResponse.length} сообщений');
+      final remoteMessages = <Message>[];
+      final seenIds = <String>{};
+
+      for (final m in remoteResponse) {
+        final id = m['id'] as String;
+        seenIds.add(id);
+
+        // Обновляем кэш имён
+        String? name = m['users']?['name'] as String?;
+        if (name == null || name.isEmpty) {
+          // Попробуем получить из локальной БД
+          final cachedUser = await _db.readUserById(m['sender_id']);
+          name = cachedUser?.name;
+        }
+        name = name ?? 'Пользователь';
+        _userNames[m['sender_id']] = name;
+
+        final message = Message(
+          id: id,
+          groupId: m['group_id'],
+          senderId: m['sender_id'],
+          content: m['content'],
+          sentAt: DateTime.parse(m['sent_at']),
+          senderName: name,
+        );
+
+        remoteMessages.add(message);
+
+        // Сохраняем в локальную БД, если ещё нет
+        if (!localIds.contains(id)) {
+          await _db.createMessage(message);
+        }
+      }
+
+      // 4Объединяем: приоритет — свежие из Supabase, но если нет — локальные
+      final allMessagesMap = <String, Message>{};
+
+      // Добавляем локальные (на случай, если Supabase их не вернул)
+      for (final m in localMessages) {
+        allMessagesMap[m.id] = m;
+      }
+
+      // Перезаписываем более свежими из Supabase
+      for (final m in remoteMessages) {
+        allMessagesMap[m.id] = m;
+      }
+
+      final allMessages = allMessagesMap.values.toList()
+        ..sort((a, b) => a.sentAt.compareTo(b.sentAt));
 
       setState(() {
-        _messages = messages;
+        _messages = allMessages;
         _isLoading = false;
       });
 
-      // Прокрутка вниз
       Future.delayed(const Duration(milliseconds: 300), _scrollToBottom);
-    } catch (e) {
+    } catch (e, s) {
+      print('Ошибка загрузки сообщений: $e\n$s');
+
+      // Включаем оффлайн-режим
+      final fallback = await _db.readMessagesForGroup(widget.groupId);
       setState(() {
+        _messages = fallback;
         _isLoading = false;
       });
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка загрузки сообщений: $e')),
+        SnackBar(content: Text('Ошибка чата: $e')), // ← Покажи ошибку
       );
     }
   }
@@ -125,16 +288,43 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     final content = _textController.text.trim();
     if (content.isEmpty || _currentUserId == null) return;
 
+    final now = DateTime.now();
+    final newMessage = Message(
+      id: Uuid().v4(), // Генерируем ID
+      groupId: widget.groupId,
+      senderId: _currentUserId!,
+      content: content,
+      sentAt: now,
+      senderName: _currentUserName,
+    );
+
     try {
+      // Сохраняем в Supabase
       await Supabase.instance.client.from('messages').insert({
-        'group_id': widget.groupId,
-        'sender_id': _currentUserId,
-        'content': content,
-        'sent_at': DateTime.now().toIso8601String(),
+        'id': newMessage.id,
+        'group_id': newMessage.groupId,
+        'sender_id': newMessage.senderId,
+        'content': newMessage.content,
+        'sent_at': newMessage.sentAt.toIso8601String(),
+      });
+
+      // Сохраняем в локальную БД
+      await _db.createMessage(newMessage);
+
+      // Добавляем в UI
+      setState(() {
+        _messages.add(newMessage);
       });
 
       _textController.clear();
+      _scrollToBottom();
     } catch (e) {
+      await _db.createMessage(newMessage);
+      setState(() {
+        _messages.add(newMessage);
+      });
+      _textController.clear();
+      _scrollToBottom();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Не удалось отправить: $e')),
       );
@@ -143,6 +333,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
   @override
   void dispose() {
+    _syncTimer?.cancel();
     _textController.dispose();
     _scrollController.dispose();
     _subscription?.cancel();
@@ -227,11 +418,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 
   Widget _buildMessageBubble(Message message, bool isMe) {
-    // Пока имя подтягиваем из локальной БД (можно улучшить через JOIN с users)
-    // Сейчас у нас в `messages` нет `users.name`, но в Supabase-запросе выше мы делали `users(name)`
-    // Однако ты в `Message.fromMap` не передаёшь имя. Давай временно покажем ID или "Вы"
-
-    final userName = isMe ? 'Вы' : 'Пользователь';
+    final String senderName = isMe ? 'Вы' : message.senderName ?? 'Пользователь';
 
     return Padding(
       padding: EdgeInsets.only(
@@ -241,31 +428,58 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         right: isMe ? 12 : 60,
       ),
       child: Column(
-        crossAxisAlignment:
-            isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: isMe ? Theme.of(context).primaryColor : Colors.grey[300],
-              borderRadius: BorderRadius.circular(18),
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.75,
             ),
-            child: Text(
-              message.content,
-              style: TextStyle(
-                color: isMe ? Colors.white : Colors.black,
-                fontSize: 16,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isMe ? Theme.of(context).primaryColor : Colors.grey[300],
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(18),
+                  topRight: const Radius.circular(18),
+                  bottomLeft: isMe ? const Radius.circular(18) : const Radius.circular(4),
+                  bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(18),
+                ),
               ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Padding(
-            padding: const EdgeInsets.only(left: 8, right: 8),
-            child: Text(
-              '${userName}, ${_formatTime(message.sentAt)}',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Имя отправителя (внутри пузыря, только у чужих)
+                  if (!isMe)
+                    Text(
+                      senderName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: Colors.white70, // чуть светлее, чтобы не "резать глаз"
+                      ),
+                    ),
+                  // Текст сообщения
+                  Text(
+                    message.content,
+                    style: TextStyle(
+                      color: isMe ? Colors.white : Colors.black87,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  // Время — в правом нижнем углу (внутри пузыря)
+                  Align(
+                    alignment: Alignment.bottomRight,
+                    child: Text(
+                      _formatTime(message.sentAt),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isMe ? Colors.white70 : Colors.black54,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -275,11 +489,24 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 
   String _formatTime(DateTime sentAt) {
+  if (sentAt.isToday()) {
+      return DateFormat.Hm().format(sentAt);
+    } else if (sentAt.isYesterday()) {
+      return 'Вчера';
+    } else {
+      return DateFormat('dd MMM').format(sentAt);
+    }
+  }
+}
+
+extension DateTimeExtension on DateTime {
+  bool isToday() {
     final now = DateTime.now();
-    final difference = now.difference(sentAt);
-    if (difference.inMinutes < 1) return 'только что';
-    if (difference.inHours < 1) return '${difference.inMinutes} мин';
-    if (difference.inDays < 1) return '${difference.inHours} ч';
-    return '${sentAt.day}.${sentAt.month} ${sentAt.hour}:${sentAt.minute.toString().padLeft(2, '0')}';
+    return now.day == day && now.month == month && now.year == year;
+  }
+
+  bool isYesterday() {
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    return yesterday.day == day && yesterday.month == month && yesterday.year == year;
   }
 }
