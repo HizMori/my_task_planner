@@ -13,7 +13,36 @@ class SignUpScreen extends StatefulWidget {
   State<SignUpScreen> createState() => _SignUpScreenState();
 }
 
+class LoadingOverlay extends StatelessWidget {
+  final Widget child;
+  final bool isLoading;
+  const LoadingOverlay({super.key, required this.child, required this.isLoading});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        child,
+        if (isLoading)
+          Container(
+            color: Colors.black.withOpacity(0.3),
+            child: Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  Theme.of(context).brightness == Brightness.dark 
+                    ? Colors.white 
+                    : const Color(0xFF7e61f3),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _SignUpScreenState extends State<SignUpScreen> {
+  bool _isLoading = false;
   
   // Controllers для полей
   final TextEditingController _loginController = TextEditingController();
@@ -127,7 +156,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   // Метод регистрации
   Future<void> _handleSignUp() async {
+    if (_isLoading) return;
     if (!_validateFields()) return;
+
+    setState(() {
+      _isLoading = true;
+    });
 
     final supabase = Supabase.instance.client;
     final login = _loginController.text.trim();
@@ -182,6 +216,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
       _showSnackBar('Ошибка: ${e.message}');  // Supabase вернет "duplicate key" для UNIQUE
     } catch (e) {
       _showSnackBar('Неизвестная ошибка: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -205,326 +243,329 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
     return Scaffold(
       backgroundColor: backgroundColor,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 32.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Логотип (заглушка, как в SignInScreen)
-                Icon(
-                  Icons.task_alt,
-                  size: 100,
-                  color: isDarkMode ? Colors.white : const Color(0xFF7e61f3),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  'Task manager',
-                  style: GoogleFonts.poppins(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: textColor,
+      body: LoadingOverlay(
+        isLoading: _isLoading,
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 32.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Логотип (заглушка, как в SignInScreen)
+                  Icon(
+                    Icons.task_alt,
+                    size: 100,
+                    color: isDarkMode ? Colors.white : const Color(0xFF7e61f3),
                   ),
-                ),
-                const SizedBox(height: 15),
-                Text(
-                  'Регистрация',
-                  style: GoogleFonts.poppins(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: textColor,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                // Поле Login
-                Container(
-                  decoration: BoxDecoration(
-                    boxShadow: _loginFocusNode.hasFocus
-                        ? [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(isDarkMode ? 0.1 : 0.2),
-                              offset: const Offset(0, 4),
-                              blurRadius: 8,
-                              spreadRadius: 1,
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: TextFormField(
-                    controller: _loginController,
-                    focusNode: _loginFocusNode,
-                    decoration: InputDecoration(
-                      prefixIcon: Icon(
-                        Icons.person,
-                        color: _loginFocusNode.hasFocus
-                            ? const Color(0xFF7e61f3)
-                            : (isDarkMode ? Colors.grey[400] : Colors.grey),
-                      ),
-                      hintText: 'Ваш логин',
-                      hintStyle: GoogleFonts.poppins(color: hintColor),
-                      filled: true,
-                      fillColor: fieldFillColor,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                            color: Color(0xFF7e61f3), width: 1.5),
-                      ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Task manager',
+                    style: GoogleFonts.poppins(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
                     ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                // Поле email
-                Container(
-                  decoration: BoxDecoration(
-                    boxShadow: _emailFocusNode.hasFocus
-                        ? [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(isDarkMode ? 0.1 : 0.2),
-                              offset: const Offset(0, 4),
-                              blurRadius: 8,
-                              spreadRadius: 1,
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: TextFormField(
-                    controller: _emailController,
-                    focusNode: _emailFocusNode,
-                    decoration: InputDecoration(
-                      prefixIcon: Icon(
-                        Icons.email,
-                        color: _emailFocusNode.hasFocus
-                            ? const Color(0xFF7e61f3)
-                            : (isDarkMode ? Colors.grey[400] : Colors.grey),
-                      ),
-                      hintText: 'Ваша почта',
-                      hintStyle: GoogleFonts.poppins(color: hintColor),
-                      filled: true,
-                      fillColor: fieldFillColor,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                            color: Color(0xFF7e61f3), width: 1.5),
-                      ),
+                  const SizedBox(height: 15),
+                  Text(
+                    'Регистрация',
+                    style: GoogleFonts.poppins(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
                     ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                // Поле phone
-                Container(
-                  decoration: BoxDecoration(
-                    boxShadow: _phoneFocusNode.hasFocus
-                        ? [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(isDarkMode ? 0.1 : 0.2),
-                              offset: const Offset(0, 4),
-                              blurRadius: 8,
-                              spreadRadius: 1,
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: TextFormField(
-                    controller: _phoneController,
-                    focusNode: _phoneFocusNode,
-                    decoration: InputDecoration(
-                      prefixIcon: Icon(
-                        Icons.phone,
-                        color: _phoneFocusNode.hasFocus
-                            ? const Color(0xFF7e61f3)
-                            : (isDarkMode ? Colors.grey[400] : Colors.grey),
-                      ),
-                      hintText: 'Ваш телефон',
-                      hintStyle: GoogleFonts.poppins(color: hintColor),
-                      filled: true,
-                      fillColor: fieldFillColor,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                            color: Color(0xFF7e61f3), width: 1.5),
-                      ),
+                  const SizedBox(height: 20),
+                  // Поле Login
+                  Container(
+                    decoration: BoxDecoration(
+                      boxShadow: _loginFocusNode.hasFocus
+                          ? [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(isDarkMode ? 0.1 : 0.2),
+                                offset: const Offset(0, 4),
+                                blurRadius: 8,
+                                spreadRadius: 1,
+                              ),
+                            ]
+                          : null,
                     ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                // Поле password
-                Container(
-                  decoration: BoxDecoration(
-                    boxShadow: _passwordFocusNode.hasFocus
-                        ? [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(isDarkMode ? 0.1 : 0.2),
-                              offset: const Offset(0, 4),
-                              blurRadius: 8,
-                              spreadRadius: 1,
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: TextFormField(
-                    controller: _passwordController,
-                    focusNode: _passwordFocusNode,
-                    obscureText: !_isPasswordVisible,
-                    decoration: InputDecoration(
-                      prefixIcon: Icon(
-                        Icons.lock,
-                        color: _passwordFocusNode.hasFocus
-                            ? const Color(0xFF7e61f3)
-                            : (isDarkMode ? Colors.grey[400] : Colors.grey),
-                      ),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _isPasswordVisible
-                              ? Icons.visibility
-                              : Icons.visibility_off,
-                          color: _isPasswordVisible
+                    child: TextFormField(
+                      controller: _loginController,
+                      focusNode: _loginFocusNode,
+                      decoration: InputDecoration(
+                        prefixIcon: Icon(
+                          Icons.person,
+                          color: _loginFocusNode.hasFocus
                               ? const Color(0xFF7e61f3)
                               : (isDarkMode ? Colors.grey[400] : Colors.grey),
                         ),
-                        onPressed: () {
-                          setState(() {
-                            _isPasswordVisible = !_isPasswordVisible;
-                          });
-                        },
-                      ),
-                      hintText: 'Пароль',
-                      hintStyle: GoogleFonts.poppins(color: hintColor),
-                      filled: true,
-                      fillColor: fieldFillColor,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                            color: Color(0xFF7e61f3), width: 1.5),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                // Кнопка Sign up
-                ElevatedButton(
-                  onPressed: _handleSignUp,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF7e61f3),
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size(double.infinity, 50),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Text(
-                    'Регистрация',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                // OR
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: Container(
-                        height: 1,
-                        color: dividerColor,
-                        margin: const EdgeInsets.only(right: 10),
-                      ),
-                    ),
-                    Text(
-                      'ИЛИ',
-                      style: GoogleFonts.poppins(
-                        color: hintColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    Expanded(
-                      child: Container(
-                        height: 1,
-                        color: dividerColor,
-                        margin: const EdgeInsets.only(left: 10),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                // Социальные кнопки (заглушка, как в SignInScreen)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      icon: Icon(
-                        Icons.g_mobiledata,
-                        size: 40,
-                        color: isDarkMode ? Colors.grey[400] : Colors.grey,
-                      ),
-                      onPressed: () {},
-                    ),
-                    IconButton(
-                      icon: Icon(
-                        Icons.language,
-                        size: 40,
-                        color: isDarkMode ? Colors.grey[400] : Colors.grey,
-                      ),
-                      onPressed: () {},
-                    ),
-                    IconButton(
-                      icon: Icon(
-                        Icons.telegram,
-                        size: 40,
-                        color: isDarkMode ? Colors.grey[400] : Colors.grey,
-                      ),
-                      onPressed: () {},
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                // Вход
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      "У вас уже есть аккаунт? ",
-                      style: GoogleFonts.poppins(color: hintColor),
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const SignInScreen(),
-                          ),
-                        );
-                      },
-                      child: Text(
-                        'Войти',
-                        style: GoogleFonts.poppins(
-                          color: const Color(0xFF7e61f3),
-                          fontWeight: FontWeight.bold,
+                        hintText: 'Ваш логин',
+                        hintStyle: GoogleFonts.poppins(color: hintColor),
+                        filled: true,
+                        fillColor: fieldFillColor,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                              color: Color(0xFF7e61f3), width: 1.5),
                         ),
                       ),
                     ),
-                  ],
-                ),
-              ],
+                  ),
+                  const SizedBox(height: 20),
+                  // Поле email
+                  Container(
+                    decoration: BoxDecoration(
+                      boxShadow: _emailFocusNode.hasFocus
+                          ? [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(isDarkMode ? 0.1 : 0.2),
+                                offset: const Offset(0, 4),
+                                blurRadius: 8,
+                                spreadRadius: 1,
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: TextFormField(
+                      controller: _emailController,
+                      focusNode: _emailFocusNode,
+                      decoration: InputDecoration(
+                        prefixIcon: Icon(
+                          Icons.email,
+                          color: _emailFocusNode.hasFocus
+                              ? const Color(0xFF7e61f3)
+                              : (isDarkMode ? Colors.grey[400] : Colors.grey),
+                        ),
+                        hintText: 'Ваша почта',
+                        hintStyle: GoogleFonts.poppins(color: hintColor),
+                        filled: true,
+                        fillColor: fieldFillColor,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                              color: Color(0xFF7e61f3), width: 1.5),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Поле phone
+                  Container(
+                    decoration: BoxDecoration(
+                      boxShadow: _phoneFocusNode.hasFocus
+                          ? [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(isDarkMode ? 0.1 : 0.2),
+                                offset: const Offset(0, 4),
+                                blurRadius: 8,
+                                spreadRadius: 1,
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: TextFormField(
+                      controller: _phoneController,
+                      focusNode: _phoneFocusNode,
+                      decoration: InputDecoration(
+                        prefixIcon: Icon(
+                          Icons.phone,
+                          color: _phoneFocusNode.hasFocus
+                              ? const Color(0xFF7e61f3)
+                              : (isDarkMode ? Colors.grey[400] : Colors.grey),
+                        ),
+                        hintText: 'Ваш телефон',
+                        hintStyle: GoogleFonts.poppins(color: hintColor),
+                        filled: true,
+                        fillColor: fieldFillColor,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                              color: Color(0xFF7e61f3), width: 1.5),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Поле password
+                  Container(
+                    decoration: BoxDecoration(
+                      boxShadow: _passwordFocusNode.hasFocus
+                          ? [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(isDarkMode ? 0.1 : 0.2),
+                                offset: const Offset(0, 4),
+                                blurRadius: 8,
+                                spreadRadius: 1,
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: TextFormField(
+                      controller: _passwordController,
+                      focusNode: _passwordFocusNode,
+                      obscureText: !_isPasswordVisible,
+                      decoration: InputDecoration(
+                        prefixIcon: Icon(
+                          Icons.lock,
+                          color: _passwordFocusNode.hasFocus
+                              ? const Color(0xFF7e61f3)
+                              : (isDarkMode ? Colors.grey[400] : Colors.grey),
+                        ),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _isPasswordVisible
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                            color: _isPasswordVisible
+                                ? const Color(0xFF7e61f3)
+                                : (isDarkMode ? Colors.grey[400] : Colors.grey),
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _isPasswordVisible = !_isPasswordVisible;
+                            });
+                          },
+                        ),
+                        hintText: 'Пароль',
+                        hintStyle: GoogleFonts.poppins(color: hintColor),
+                        filled: true,
+                        fillColor: fieldFillColor,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                              color: Color(0xFF7e61f3), width: 1.5),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Кнопка Sign up
+                  ElevatedButton(
+                    onPressed: _handleSignUp,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF7e61f3),
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      'Регистрация',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // OR
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Container(
+                          height: 1,
+                          color: dividerColor,
+                          margin: const EdgeInsets.only(right: 10),
+                        ),
+                      ),
+                      Text(
+                        'ИЛИ',
+                        style: GoogleFonts.poppins(
+                          color: hintColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      Expanded(
+                        child: Container(
+                          height: 1,
+                          color: dividerColor,
+                          margin: const EdgeInsets.only(left: 10),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  // Социальные кнопки (заглушка, как в SignInScreen)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          Icons.g_mobiledata,
+                          size: 40,
+                          color: isDarkMode ? Colors.grey[400] : Colors.grey,
+                        ),
+                        onPressed: () {},
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          Icons.language,
+                          size: 40,
+                          color: isDarkMode ? Colors.grey[400] : Colors.grey,
+                        ),
+                        onPressed: () {},
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          Icons.telegram,
+                          size: 40,
+                          color: isDarkMode ? Colors.grey[400] : Colors.grey,
+                        ),
+                        onPressed: () {},
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  // Вход
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        "У вас уже есть аккаунт? ",
+                        style: GoogleFonts.poppins(color: hintColor),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const SignInScreen(),
+                            ),
+                          );
+                        },
+                        child: Text(
+                          'Войти',
+                          style: GoogleFonts.poppins(
+                            color: const Color(0xFF7e61f3),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),

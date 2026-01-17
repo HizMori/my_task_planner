@@ -282,7 +282,7 @@ class MainScreen extends StatefulWidget {
   }
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
   int _selectedIndex = 0;
   final List<Widget> _screenStack = [];
   late List<Widget> _mainScreens;
@@ -292,12 +292,22 @@ class _MainScreenState extends State<MainScreen> {
   bool _isAnimating = false; // Флаг для блокировки анимации во время выполнения
   final Connectivity _connectivity = Connectivity();
   late StreamSubscription<ConnectivityResult> _connectivitySubscription;
+  OverlayEntry? _moreOverlayEntry;
+  bool _isMoreMenuVisible = false;
+  double _moreMenuOffsetY = 0.0; // Для анимации slide
+  late AnimationController _moreMenuController;
+  int _previousSelectedIndex = 0;  // Новая переменная для хранения предыдущего состояния
+  bool _isMenuOpenUpward = true;
 
   int get screenStackLength => _screenStack.length;
 
   @override
   void initState() {
     super.initState();
+    _moreMenuController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
     _mainScreens = [
       const HomeScreen(),
       const TaskListScreen(),
@@ -453,9 +463,13 @@ class _MainScreenState extends State<MainScreen> {
       builder: (context) => Stack(
         children: [
           // Прозрачный слой для закрытия меню при тапе вне его
-          GestureDetector(
-            onTap: _hideCreateMenu,
-            child: Container(color: Colors.transparent),
+          AnimatedOpacity(
+            opacity: _moreMenuController.isAnimating ? 0.3 : 0,
+            duration: const Duration(milliseconds: 300),
+            child: GestureDetector(
+              onTap: _hideMoreMenu,
+              child: Container(color: Colors.black),
+            ),
           ),
           // Меню
           Positioned(
@@ -541,10 +555,139 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
+  void _hideMoreMenu() {
+    if (_moreOverlayEntry != null) {
+      // Reverse анимация: slide down
+      setState(() {
+        _isAnimating = true;
+        _isMoreMenuVisible = false;
+        _selectedIndex = _previousSelectedIndex;
+      });
+      _moreMenuController.reverse().then((_) {
+        // После окончания анимации — удаляем Overlay
+        _moreOverlayEntry?.remove();
+        _moreOverlayEntry = null;
+        setState(() {
+          _isAnimating = false;
+        });
+      });
+    }
+  }
+
+  void _showMoreMenu(BuildContext context, Offset buttonPosition, Size buttonSize) {  // Добавили buttonSize как параметр
+    if (_isAnimating) return;
+    _hideMoreMenu();
+    _previousSelectedIndex = _selectedIndex;
+    
+
+    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final double menuWidth = 200.0;  // Ваша ширина меню
+    final double menuHeight = _moreScreens.length * 50.0 + 20.0;  // Примерная высота (подкорректируйте, если нужно)
+    final double screenWidth = overlay.size.width;
+    final double screenHeight = overlay.size.height;
+
+    // Центрирование по X
+    double left = buttonPosition.dx + (buttonSize.width / 2) - (menuWidth / 2);
+    left = left.clamp(0.0, screenWidth - menuWidth);  // Не даём уйти за края
+
+    // Позиционирование по Y: выше кнопки для upward меню
+    double padding = 20.0;  // Отступ от кнопки
+    double initialTop = buttonPosition.dy - menuHeight - padding;
+
+    // Проверка места сверху: если не влезает, открываем ниже (fallback)
+    final double availableSpaceAbove = buttonPosition.dy;
+    bool openUpward = availableSpaceAbove > menuHeight + padding;
+    if (!openUpward) {
+      initialTop = buttonPosition.dy + buttonSize.height + padding;
+      if (initialTop + menuHeight > screenHeight) {
+        initialTop = screenHeight - menuHeight;  // Clamp снизу
+      }
+    }
+
+    _isMenuOpenUpward = openUpward;
+
+    setState(() {
+      _isAnimating = true;
+    });
+
+    _moreOverlayEntry = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          GestureDetector(
+            onTap: _hideMoreMenu,
+            child: Container(color: Colors.transparent),
+          ),
+          Positioned(
+            left: left,
+            top: initialTop,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.7, end: 1.0).animate(
+                CurvedAnimation(
+                  parent: _moreMenuController,
+                  curve: Curves.easeOutBack, // Плавное появление с "подпрыгиванием"
+                ),
+              ),
+              child: FadeTransition(
+                opacity: Tween<double>(begin: 0.0, end: 1.0).animate(
+                  CurvedAnimation(
+                    parent: _moreMenuController,
+                    curve: Curves.easeOut,
+                  ),
+                ),
+                child: Material(
+                  elevation: 8,
+                  borderRadius: BorderRadius.circular(12),
+                  color: const Color(0xFFF8F9FA),
+                  child: Container(
+                    width: menuWidth,
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: _moreScreens.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final screen = entry.value;
+                        return ListTile(
+                          leading: Icon(screen['icon'], color: const Color(0xFF7e61f3)),
+                          title: Text(
+                            screen['title'],
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          onTap: () {
+                            _hideMoreMenu();
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => screen['screen']),
+                            );
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    Overlay.of(context).insert(_moreOverlayEntry!);
+    _moreMenuController.reset();
+    _moreMenuController.forward();
+    Future.delayed(const Duration(milliseconds: 300), () {
+      setState(() {
+        _isAnimating = false;
+        _isMoreMenuVisible = true;
+      });
+    });
+  }
+
   @override
   void dispose() {
     _connectivitySubscription.cancel();
     _hideCreateMenu();
+    _hideMoreMenu();
+    _moreMenuController.dispose();
     super.dispose();
   }
 
@@ -665,37 +808,30 @@ class _MainScreenState extends State<MainScreen> {
                     ),
                     onPressed: () => _onItemTapped(2),
                   ),
-                  PopupMenuButton<int>(
-                    offset: const Offset(0, -220),
-                    onSelected: (index) {
-                      final screen = _moreScreens[index]['screen'] as Widget;
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => screen),
-                      );
-                    },
-                    itemBuilder: (context) => _moreScreens.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final screen = entry.value;
-                      return PopupMenuItem<int>(
-                        value: index,
-                        child: Row(
-                          children: [
-                            Icon(screen['icon'], color: const Color(0xFF7e61f3)),
-                            const SizedBox(width: 8),
-                            Text(
-                              screen['title'],
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                    icon: Icon(
-                      Icons.more_horiz,
-                      color: _selectedIndex == 3
-                          ? const Color(0xFF7e61f3)
-                          : const Color(0xFFB0BEC5),
+                  Builder(  // Добавили Builder для правильного context
+                    builder: (context) => 
+                    IconButton(
+                      icon: Icon(
+                        Icons.more_horiz,
+                        color: _selectedIndex == 3 
+                            ? const Color(0xFF7e61f3) 
+                            : const Color(0xFFB0BEC5),
+                      ),
+                      onPressed: () {
+                        if (_isAnimating) return;
+                        final RenderBox button = context.findRenderObject() as RenderBox;
+                        final Offset buttonPosition = button.localToGlobal(Offset.zero);
+                        final Size buttonSize = button.size;  // Теперь доступен size
+                        if (_isMoreMenuVisible) {
+                          _hideMoreMenu(); // Это уже сбросит _selectedIndex
+                        } else {
+                          setState(() {
+                            _previousSelectedIndex = _selectedIndex;
+                            _selectedIndex = 3;
+                          });
+                          _showMoreMenu(context, buttonPosition, buttonSize);
+                        }
+                      },
                     ),
                   ),
                 ],
