@@ -298,6 +298,9 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
   late AnimationController _moreMenuController;
   int _previousSelectedIndex = 0;  // Новая переменная для хранения предыдущего состояния
   bool _isMenuOpenUpward = true;
+  late AnimationController _createMenuController;
+  late Animation<double> _createMenuSlide;
+  late Animation<double> _createMenuFade;
 
   int get screenStackLength => _screenStack.length;
 
@@ -316,6 +319,19 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
     ];
     _screenStack.add(_mainScreens[_selectedIndex]);
     _isButtonPressed = List.filled(_createOptions.length, false);
+    
+    _createMenuController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+
+    _createMenuSlide = Tween<double>(begin: 20, end: 0).animate(
+      CurvedAnimation(parent: _createMenuController, curve: Curves.easeOut),
+    );
+
+    _createMenuFade = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _createMenuController, curve: Curves.easeIn),
+    );
 
     _startConnectivityListener();
   }
@@ -435,86 +451,110 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
   }
 
   void _showCreateMenu(BuildContext context, Offset buttonPosition) {
-    if (_isAnimating) return; // Игнорируем нажатия во время анимации
+    if (_isAnimating || _overlayEntry != null) return;
+
     setState(() {
-      _isAnimating = true; // Блокируем новые нажатия
+      _isAnimating = true;
       _isButtonPressed.fillRange(0, _isButtonPressed.length, false);
-      _rotationAngle = 0.125; // Поворачиваем иконку на 45 градусов вправо (плюс → крестик)
+      _rotationAngle = 0.125;
     });
 
-    // Закрываем предыдущее меню, если оно открыто
-    _hideCreateMenu();
-
-    final RenderBox? overlay = Overlay.of(context)?.context.findRenderObject() as RenderBox?;
-    if (overlay == null) return;
-
-    final RenderBox? button = context.findRenderObject() as RenderBox?;
-    if (button == null) return;
+    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final RenderBox button = context.findRenderObject() as RenderBox;
+    final Size overlaySize = overlay.size;
 
     final menuWidth = _createOptions.length * 60.0;
-
-    // Настройка высоты меню
     const triangleHeight = 10.0;
     final menuHeight = 70.0 + triangleHeight;
-    final screenWidth = overlay.size.width;
+    final screenWidth = overlaySize.width;
 
-    // Центрирование меню над серединой кнопки
     final left = (buttonPosition.dx + (button.size.width / 2) - (menuWidth / 2)).clamp(0.0, screenWidth - menuWidth);
+
+    // Сбрасываем анимацию
+    _createMenuController.reset();
 
     _overlayEntry = OverlayEntry(
       builder: (context) => Stack(
         children: [
-          // Прозрачный слой для закрытия меню при тапе вне его
-          AnimatedOpacity(
-            opacity: _moreMenuController.isAnimating ? 0.3 : 0,
-            duration: const Duration(milliseconds: 300),
+          // Фон — закрывает всё и закрывает меню при тапе
+          Positioned.fill(
             child: GestureDetector(
-              onTap: _hideMoreMenu,
-              child: Container(color: Colors.black),
+              onTap: _hideCreateMenu,
+              child: AnimatedBuilder(
+                animation: _createMenuFade,
+                builder: (context, child) => Container(
+                  color: Colors.transparent,
+                ),
+              ),
+              behavior: HitTestBehavior.translucent,
             ),
           ),
-          // Меню
-          Positioned(
-            left: left,
-            top: buttonPosition.dy - 70.0 - 10,
-            child: Material(
-              elevation: 8,
-              color: Colors.transparent,
-              child: PhysicalShape(
-                clipper: MenuClipper(),
-                color: Theme.of(context).popupMenuTheme.color ?? Theme.of(context).scaffoldBackgroundColor,
-                shadowColor: Colors.black.withOpacity(0.2),
-                elevation: 8,
-                child: ClipPath(
-                  clipper: MenuClipper(),
-                  child: Container(
-                    height: menuHeight,
-                    width: menuWidth,
+          // Анимированное меню
+          AnimatedBuilder(
+            animation: _createMenuController,
+            builder: (context, child) => Positioned(
+              left: left,
+              top: buttonPosition.dy - 70.0 - 10 - _createMenuSlide.value,
+              child: Opacity(
+                opacity: _createMenuFade.value,
+                child: Material(
+                  elevation: 8,
+                  color: Colors.transparent,
+                  child: PhysicalShape(
+                    clipper: MenuClipper(),
                     color: Theme.of(context).popupMenuTheme.color ?? Theme.of(context).scaffoldBackgroundColor,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: _createOptions.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final option = entry.value;
-                        return GestureDetector(
-                          onTapDown: (_) => setState(() => _isButtonPressed[index] = true),
-                          onTapUp: (_) {
-                            _hideCreateMenu();
-                            setState(() => _isButtonPressed[index] = false);
-                            Navigator.push(context, MaterialPageRoute(builder: (context) => option['screen']));
-                          },
-                          onTapCancel: () => setState(() => _isButtonPressed[index] = false),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 100),
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                            child: Icon(
-                              option['icon'],
-                              color: _isButtonPressed[index] ? const Color(0xFF7e61f3) : Colors.grey[400],
-                              size: 30,
-                            ),
-                          ),
-                        );
-                      }).toList(),
+                    shadowColor: Colors.black.withOpacity(0.2),
+                    elevation: 8,
+                    child: ClipPath(
+                      clipper: MenuClipper(),
+                      child: Container(
+                        height: menuHeight,
+                        width: menuWidth,
+                        color: const Color(0xFFF8F9FA),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: _createOptions.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final option = entry.value;
+                            return GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTapDown: (_) {
+                                setState(() {
+                                  _isButtonPressed[index] = true;
+                                });
+                              },
+                              onTapUp: (_) {
+                                _hideCreateMenu();
+                                setState(() {
+                                  _isButtonPressed[index] = false;
+                                });
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => option['screen']),
+                                );
+                              },
+                              onTapCancel: () {
+                                setState(() {
+                                  _isButtonPressed[index] = false;
+                                });
+                              },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: _isButtonPressed[index] ? const Color(0x337e61f3) : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  option['icon'],
+                                  color: _isButtonPressed[index] ? const Color(0xFF7e61f3) : Colors.grey[400],
+                                  size: 30,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -525,36 +565,40 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
       ),
     );
 
-    try {
-      Overlay.of(context)?.insert(_overlayEntry!);
-      Future.delayed(const Duration(milliseconds: 300), () {
+    Overlay.of(context)?.insert(_overlayEntry!);
+
+    // Запускаем анимацию
+    _createMenuController.forward();
+
+    // Снимаем блокировку после анимации
+    _createMenuController.addStatusListener((status) {
+      if (status == AnimationStatus.completed && mounted) {
         setState(() {
           _isAnimating = false;
         });
-      });
-    } catch (e) {
-      print('Error inserting OverlayEntry: $e');
-      setState(() {
-        _isAnimating = false;
-      });
-    }
+      }
+    });
   }
 
   void _hideCreateMenu() {
-    if (_overlayEntry != null) {
-      setState(() {
-        _rotationAngle = 0;
-        _isAnimating = true;
-      });
+    if (_overlayEntry == null) return;
+
+    setState(() {
+      _isAnimating = true;
+      _rotationAngle = 0; // Возвращаем + из ×
+    });
+
+    // Обратная анимация
+    _createMenuController.reverse().then((_) {
       _overlayEntry?.remove();
       _overlayEntry = null;
-      // Снимаем блокировку после завершения анимации
-      Future.delayed(const Duration(milliseconds: 300), () {
+
+      if (mounted) {
         setState(() {
           _isAnimating = false;
         });
-      });
-    }
+      }
+    });
   }
 
   void _hideMoreMenu() {
@@ -690,6 +734,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
     _hideCreateMenu();
     _hideMoreMenu();
     _moreMenuController.dispose();
+    _createMenuController.dispose();
     super.dispose();
   }
 
@@ -716,7 +761,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
                 if (_overlayEntry == null) {
                   _showCreateMenu(context, buttonPosition);
                 } else {
-                  _hideCreateMenu();
+                  _hideCreateMenu(); // Закрываем при повторном нажатии
                 }
               }
             },
