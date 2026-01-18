@@ -419,6 +419,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
   Widget _buildMessageBubble(Message message, bool isMe) {
     final String senderName = isMe ? 'Вы' : message.senderName ?? 'Пользователь';
+    final String timeText = _formatTime(message.sentAt);
 
     return Padding(
       padding: EdgeInsets.only(
@@ -427,15 +428,16 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         left: isMe ? 60 : 12,
         right: isMe ? 12 : 60,
       ),
-      child: Column(
-        crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: [
-          ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.75,
-            ),
+      child: Align(
+        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.75,
+          ),
+          child: IntrinsicWidth(
+            // ← Ключевое: делает ширину = max(текст, время)
+            stepWidth: 10.0,
             child: Container(
-              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: isMe ? Theme.of(context).primaryColor : Colors.grey[300],
                 borderRadius: BorderRadius.only(
@@ -446,36 +448,46 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 ),
               ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Имя отправителя (внутри пузыря, только у чужих)
+                  // Имя отправителя (только у чужих)
                   if (!isMe)
-                    Text(
-                      senderName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: Colors.white70, // чуть светлее, чтобы не "резать глаз"
+                    Padding(
+                      padding: const EdgeInsets.only(left: 12, top: 8, right: 12),
+                      child: Text(
+                        senderName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Colors.white70,
+                        ),
                       ),
                     ),
                   // Текст сообщения
-                  Text(
-                    message.content,
-                    style: TextStyle(
-                      color: isMe ? Colors.white : Colors.black87,
-                      fontSize: 16,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Text(
+                      message.content,
+                      style: TextStyle(
+                        color: isMe ? Colors.white : Colors.black87,
+                        fontSize: 16,
+                      ),
+                      softWrap: true,
+                      overflow: TextOverflow.visible,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  // Время — в правом нижнем углу (внутри пузыря)
-                  Align(
-                    alignment: Alignment.bottomRight,
-                    child: Text(
-                      _formatTime(message.sentAt),
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: isMe ? Colors.white70 : Colors.black54,
+                  // Время — теперь не Padding, а отдельный элемент с отступом
+                  Padding(
+                    padding: const EdgeInsets.only(left: 12, right: 12, bottom: 8),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        timeText,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isMe ? Colors.white70 : Colors.black54,
+                        ),
                       ),
                     ),
                   ),
@@ -483,7 +495,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
