@@ -28,6 +28,8 @@ Future<void> main() async {
     anonKey: 'sb_publishable_nzc7YWw8V8N6HwDdzQhI6g_o2sjALYS',
   );
 
+  await DatabaseService.instance.deleteDB();
+
   runApp(const MyApp());
 }
 
@@ -382,6 +384,8 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
       final result = await InternetAddress.lookup('google.com');
       if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
         await AuthService.instance.syncCurrentUser();
+        await DatabaseService.instance.syncTasksToSupabase();
+        await DatabaseService.instance.syncMessagesToSupabase();
       }
     } on SocketException {
       // Нет интернета — пропускаем

@@ -5,6 +5,7 @@ class Message {
   final String content;
   final DateTime sentAt;
   final String? senderName;
+  final DateTime? lastSyncAt;
 
   Message({
     required this.id,
@@ -13,6 +14,7 @@ class Message {
     required this.content,
     required this.sentAt,
     this.senderName,
+    this.lastSyncAt,
   });
 
   Map<String, dynamic> toMap() {
@@ -23,6 +25,7 @@ class Message {
       'content': content,
       'sent_at': sentAt.toIso8601String(),
       'sender_name': senderName ?? 'Пользователь',
+      'last_sync_at': lastSyncAt?.toIso8601String(),
     };
   }
 
@@ -34,17 +37,27 @@ class Message {
       content: map['content'],
       sentAt: DateTime.parse(map['sent_at']),
       senderName: map['sender_name']?.toString() ?? 'Пользователь',
+      lastSyncAt: map['last_sync_at'] != null ? DateTime.parse(map['last_sync_at']) : null,
     );
   }
 
-  Message copyWith({String? id, String? groupId, String? senderId, String? content, DateTime? sentAt}) {
+  Message copyWith({
+    String? id, 
+    String? groupId, 
+    String? senderId, 
+    String? content, 
+    DateTime? sentAt,
+    String? senderName,
+    DateTime? lastSyncAt,
+    }) {
     return Message(
       id: id ?? this.id,
       groupId: groupId ?? this.groupId,
       senderId: senderId ?? this.senderId,
       content: content ?? this.content,
       sentAt: sentAt ?? this.sentAt,
-      senderName: senderName,
+      senderName: senderName ?? this.senderName,
+      lastSyncAt: lastSyncAt ?? this.lastSyncAt,
     );
   }
 }

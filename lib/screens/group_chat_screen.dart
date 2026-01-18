@@ -34,11 +34,15 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   @override
   void initState() {
     super.initState();
-    _loadUserData();
-    _loadMessages();
-    _subscribeToMessages();
-    _startPeriodicSync();
+    _initializeChat();
   }
+
+  Future<void> _initializeChat() async {
+  await _loadUserData(); // Ждём получения _currentUserId
+  await _loadMessages();
+  _subscribeToMessages();
+  _startPeriodicSync();
+}
 
   Timer? _syncTimer;
 
@@ -103,7 +107,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         final Map<String, dynamic>? newData = change['new'] as Map<String, dynamic>?;
 
         if (event == 'INSERT' && newData != null) {
-          final String senderId = newData['sender_id'] as String? ?? 'unknown';
+          final senderIdDynamic = newData['sender_id'];
+          final String senderId = senderIdDynamic is String ? senderIdDynamic : 'unknown';
           String? rawName = (newData['users'] as Map?)?['name'] as String?;
 
           if (rawName == null || rawName.isEmpty) {
@@ -157,6 +162,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     // ✅ Загрузим имена всех участников группы
       await _preloadUserNames();
     } catch (e) {
+      print('Ошибка загрузки пользователя: $e');
       _currentUserName = 'Вы';
     }
   }
@@ -343,11 +349,6 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Чат'),
-        centerTitle: true,
-        automaticallyImplyLeading: false,
-      ),
       body: Column(
         children: [
           // Список сообщений

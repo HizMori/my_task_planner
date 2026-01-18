@@ -311,6 +311,44 @@ class DatabaseService {
     }
   }
 
+  Future<void> syncMessagesToSupabase() async {
+    try {
+      final db = await database;
+      final result = await db.query(
+        'messages',
+        where: 'last_sync_at IS NULL', // Только неотправленные
+      );
+
+      final messagesToSync = result.map((e) => Message.fromMap(e)).toList();
+
+      for (var message in messagesToSync) {
+        try {
+          final data = {
+            'id': message.id,
+            'group_id': message.groupId,
+            'sender_id': message.senderId,
+            'content': message.content,
+            'sent_at': message.sentAt.toIso8601String(),
+          };
+
+          await supabase.from('messages').insert(data);
+
+          // ✅ Отметить как отправленное
+          await db.update(
+            'messages',
+            {'last_sync_at': DateTime.now().toIso8601String()},
+            where: 'id = ?',
+            whereArgs: [message.id],
+          );
+        } catch (e) {
+          print('Не удалось отправить сообщение ${message.id}: $e');
+          // Оставляем last_sync_at = null → повторим позже
+        }
+      }
+    } catch (e) {
+      print('Ошибка синхронизации сообщений в Supabase: $e');
+    }
+  }
 
   // Создание таблиц (выполняется при первой установке или после удаления)
   Future _createDB(Database db, int version) async {
@@ -387,7 +425,8 @@ class DatabaseService {
         sender_id TEXT,
         content TEXT NOT NULL,
         sent_at TEXT,
-        sender_name TEXT
+        sender_name TEXT,
+        last_sync_at TEXT
       )
     ''');
 
@@ -602,7 +641,11 @@ class DatabaseService {
   // CRUD для сообщений
   Future<Message> createMessage(Message message) async {
     final db = await database;
-    await db.insert('messages', message.toMap());
+    await db.insert(
+      'messages',
+      message.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
     return message;
   }
 
