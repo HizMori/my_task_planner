@@ -18,6 +18,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = true;
   final DatabaseService _db = DatabaseService.instance;
   List<Task> _upcomingTasks = [];
+  String? _userId; 
 
   @override
   void initState() {
@@ -39,6 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadData() async {
     final userId = await AuthService.instance.getCurrentUserId();
     if (userId != null) {
+      _userId = userId;
       final user = await _db.readUserById(userId);
 
       final userTasks = await _db.readUserTasks(userId);
@@ -178,7 +180,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        ..._buildTaskList(overdueTasks, theme),
+                        ..._buildTaskList(overdueTasks, theme, _userId!),
                       ],
                     ),
 
@@ -199,7 +201,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        ..._buildTaskList(upcomingTasks, theme),
+                        ..._buildTaskList(upcomingTasks, theme, _userId!),
                       ],
                     ),
 
@@ -221,7 +223,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // Вспомогательная функция для построения списка задач
-  List<Widget> _buildTaskList(List<Task> tasks, ThemeData theme) {
+  List<Widget> _buildTaskList(List<Task> tasks, ThemeData theme, String userId) {
     return tasks.asMap().entries.map((entry) {
       final index = entry.key;
       final task = entry.value;
@@ -295,6 +297,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ],
                   ),
+                  if (task.assigned_to != null && task.assigned_to == userId)
+                    Row(
+                      children: [
+                        Icon(Icons.person, size: 12, color: const Color(0xFF7e61f3)),
+                        const SizedBox(width: 4),
+                        Text('Назначено вам', style: TextStyle(fontSize: 10, color: const Color(0xFF7e61f3))),
+                      ],
+                    ),
                   if (task.deadline!.isBefore(DateTime.now()))
                     Row(
                       children: [

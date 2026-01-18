@@ -28,8 +28,6 @@ Future<void> main() async {
     anonKey: 'sb_publishable_nzc7YWw8V8N6HwDdzQhI6g_o2sjALYS',
   );
 
-  await DatabaseService.instance.deleteDB();
-
   runApp(const MyApp());
 }
 

@@ -535,7 +535,11 @@ class DatabaseService {
   // CRUD для пользователей
   Future<User> createUser(User user) async {
     final db = await database;
-    await db.insert('users', user.toMap());
+    await db.insert(
+      'users',
+      user.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
     return user;
   }
 
@@ -593,6 +597,13 @@ class DatabaseService {
     final db = await database;
     await db.insert('groups', group.toMap());
     return group;
+  }
+
+  Future<Group?> readGroupById(String id) async {
+    final db = await database;
+    final result = await db.query('groups', where: 'id = ?', whereArgs: [id]);
+    if (result.isEmpty) return null;
+    return Group.fromMap(result.first);
   }
 
   Future<List<Group>> readAllGroups() async {

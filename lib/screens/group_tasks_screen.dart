@@ -4,6 +4,7 @@ import '../models/group.dart';
 import '../services/database_service.dart';
 import 'create_task_screen.dart';
 import '../main.dart';
+import '../models/user.dart';
 
 class GroupTasksScreen extends StatefulWidget {
   final Group group;
@@ -18,6 +19,7 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
   final DatabaseService _db = DatabaseService.instance;
   List<Task> _tasks = [];
   bool _isLoading = true;
+  Map<String, User?> _groupUsersCache = {};
 
   @override
   void initState() {
@@ -25,8 +27,90 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _db.syncTasksFromSupabase();
       await _db.syncTasksToSupabase();
+      await _loadGroupMembersAndCache(); 
+      await _db.syncGroupsFromSupabase();
+      await _db.syncGroupMembersFromSupabase(); 
       _loadTasks();
     });
+  }
+
+  Future<void> _loadGroupMembersAndCache() async {
+    try {
+      // Получаем ID участников группы из Supabase (не из локальной БД!)
+      final membersData = await _db.supabase
+          .from('group_members')
+          .select('user_id')
+          .eq('group_id', widget.group.id);
+
+      final List<String> userIds = (membersData as List)
+          .map((m) => m['user_id'] as String)
+          .toList();
+
+      if (userIds.isEmpty) {
+        setState(() {
+          _groupUsersCache = {};
+        });
+        return;
+      }
+
+      // Загружаем профили пользователей из Supabase
+      final usersData = await _db.supabase
+          .from('users')
+          .select('id, name, created_at, updated_at')
+          .filter('id', 'in', userIds);
+
+      final List<User> users = (usersData as List)
+          .map((u) => User.fromMap(u))
+          .toList();
+
+      // Сохраняем в локальную БД для будущих запросов
+      for (final user in users) {
+        await _db.createUser(user);
+      }
+
+      // Строим кэш по ID
+      final Map<String, User> cache = {
+        for (final user in users) user.id: user,
+      };
+
+      if (mounted) {
+        setState(() {
+          _groupUsersCache = cache;
+        });
+      }
+    } catch (e) {
+      print('Ошибка загрузки участников из Supabase: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось загрузить участников: $e')),
+      );
+
+      // Даже если ошибка — попробуем подгрузить из локальной БД
+      _loadGroupMembersAndCacheFromLocal();
+    }
+  }
+
+  Future<void> _loadGroupMembersAndCacheFromLocal() async {
+    try {
+      final groupMembers = await _db.readGroupMembers(widget.group.id);
+      final userIds = groupMembers.map((m) => m.userId).toList();
+
+      final Map<String, User> cache = {};
+
+      for (final userId in userIds) {
+        final user = await _db.readUserById(userId);
+        if (user != null) {
+          cache[user.id] = user;
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _groupUsersCache = cache;
+        });
+      }
+    } catch (e) {
+      print('Ошибка загрузки участников из локальной БД: $e');
+    }
   }
 
   Future<void> _loadTasks() async {
@@ -180,17 +264,18 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
                                             )
                                           : null,
                                     ),
-                                    subtitle: Wrap(
-                                      spacing: 8,
+                                    subtitle: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        _buildLabel(
-                                          _getPriorityText(task.priority),
-                                          _getPriorityColor(task.priority),
+                                        Wrap(
+                                          spacing: 8,
+                                          children: [
+                                            _buildLabel(_getPriorityText(task.priority), _getPriorityColor(task.priority)),
+                                            _buildLabel(_getCategoryText(task.category), const Color(0xFF7e61f3)),
+                                          ],
                                         ),
-                                        _buildLabel(
-                                          _getCategoryText(task.category),
-                                          const Color(0xFF7e61f3),
-                                        ),
+                                        SizedBox(height: 4),
+                                        _buildAssignedTo(task),
                                       ],
                                     ),
                                     trailing: Checkbox(
@@ -247,6 +332,25 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildAssignedTo(Task task) {
+    if (task.assigned_to == null) return SizedBox();
+
+    final user = _groupUsersCache[task.assigned_to];
+    final displayName = user?.name ?? 'Участник';
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.person, size: 12, color: Color(0xFF7e61f3)),
+        SizedBox(width: 4),
+        Text(
+          'Назначено: $displayName',
+          style: TextStyle(fontSize: 10, color: Color(0xFF7e61f3)),
+        ),
+      ],
     );
   }
 

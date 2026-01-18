@@ -26,6 +26,8 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   String _category = 'работа';
   String? _groupId; // null — значит личная задача
   late String _creatorId; // реальный ID
+  String? _assignedTo; // ID пользователя, которому делегирована задача
+  User? _assignedUser; // Для отображения имени/аватара
 
   final DatabaseService _databaseService = DatabaseService.instance;
 
@@ -47,29 +49,243 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   @override
   void initState() {
     super.initState();
-    _loadUserId();
-    _loadGroups();
-    if (widget.task != null) {
-    // Режим редактирования
-      final task = widget.task!;
-      _titleController.text = task.title;
-      _descriptionController.text = task.description ?? '';
-      _deadline = task.deadline;
-      _priority = task.priority ?? 'medium';
-      _category = task.category ?? 'работа';
-      _groupId = task.groupId;
-      _creatorId = task.creatorId;
-    } else {
-      _titleController.text = '';
-      _descriptionController.text = '';
-      _groupId = widget.initialGroupId;
-    }
+    print('CreateTaskScreen: widget.task = $widget.task');
+    _loadUserId().then((_) {
+      // Только после того, как _creatorId загружен — грузим группы и задачу
+      _loadGroups().then((_) {
+        if (widget.task != null) {
+          _loadTaskData();
+        }
+      });
+    });
   }
+
+  Future<void> _loadTaskData() async {
+    final task = widget.task!;
+    print('Загружаем задачу: id=${task.id}, title=${task.title}, description=${task.description}');
+
+    if (mounted) {
+      setState(() {
+        _titleController.text = task.title;
+        _descriptionController.text = task.description ?? '';
+        _deadline = task.deadline;
+        _priority = task.priority ?? 'medium';
+        _category = task.category ?? 'работа';
+        _groupId = task.groupId;
+        _creatorId = task.creatorId;
+        _assignedTo = task.assigned_to;
+      });
+    }
+
+    if (_assignedTo != null) {
+      final user = await _databaseService.readUserById(_assignedTo!);
+      if (mounted) {
+        setState(() {
+          _assignedUser = user;
+        });
+      }
+    } 
+    print('Контроллеры заполнены: title="${_titleController.text}", description="${_descriptionController.text}"');
+  }
+
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  Future<List<User>> _loadGroupMembers(String groupId) async {
+    try {
+      final membersResponse = await _databaseService.supabase
+        .from('group_members')
+        .select('user_id')
+        .eq('group_id', groupId);
+      
+      print('Участники группы $groupId: ${membersResponse.length} человек'); 
+      
+      if (membersResponse.isEmpty) return [];
+
+      final userIds = (membersResponse as List<Map<String, dynamic>>)
+        .map((m) => m['user_id'] as String)
+        .where((id) => id != _creatorId) // Исключаем себя
+        .toList();
+
+      if (userIds.isEmpty) return [];
+
+       // Получаем актуальные данные пользователей из Supabase
+      final usersResponse = await _databaseService.supabase
+          .from('users')
+          .select('id, name, email, telephone, created_at, updated_at')
+          .filter('id', 'in', userIds);
+
+      if (usersResponse.isEmpty) return [];
+
+       // Преобразуем в список User
+      return (usersResponse as List<Map<String, dynamic>>)
+          .map((u) => User.fromMap(u))
+          .toList();
+
+    } catch (e) {
+      print('Ошибка загрузки участников: $e');
+      return [];
+    }
+  }
+
+  Future<void> _showAssignUserDialog() async {
+    if (_groupId == null) return;
+
+    // Загружаем участников группы
+    final allMembers = await _loadGroupMembers(_groupId!);
+    if (allMembers.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Нет участников в группе')),
+      );
+      return;
+    }
+
+    // Сохраняем начальное состояние
+    final User? initialUser = _assignedUser;
+    User? selectedUser = _assignedUser; // Текущий выбор в диалоге
+
+    final result = await showDialog<User?>(
+      context: context,
+      builder: (context) {
+        final TextEditingController searchController = TextEditingController();
+        List<User> filteredMembers = allMembers;
+
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text('Назначить участника'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Поисковая строка
+                    TextField(
+                      controller: searchController,
+                      decoration: InputDecoration(
+                        labelText: 'Поиск участника',
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: searchController.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, size: 18),
+                                onPressed: () {
+                                  searchController.clear();
+                                  filteredMembers = allMembers;
+                                  setStateDialog(() {});
+                                },
+                              )
+                            : null,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      autofocus: true,
+                      textInputAction: TextInputAction.search,
+                      onChanged: (query) {
+                        if (query.trim().isEmpty) {
+                          filteredMembers = allMembers;
+                        } else {
+                          filteredMembers = allMembers
+                              .where((user) => user.name.toLowerCase().contains(query.toLowerCase()))
+                              .toList();
+                        }
+                        setStateDialog(() {});
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    // Список участников
+                    SizedBox(
+                      height: 200,
+                      child: filteredMembers.isEmpty
+                          ? const Center(child: Text('Не найдено'))
+                          : ListView.builder(
+                              padding: EdgeInsets.zero,
+                              itemCount: filteredMembers.length,
+                              itemBuilder: (context, index) {
+                                final user = filteredMembers[index];
+                                final isSelected = selectedUser?.id == user.id;
+                                return ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundImage: user.avatarUrl != null
+                                        ? NetworkImage(user.avatarUrl!)
+                                        : null,
+                                    child: user.avatarUrl == null
+                                        ? Text(user.name[0].toUpperCase())
+                                        : null,
+                                  ),
+                                  title: Text(user.name),
+                                  subtitle: Text(user.email ?? 'Нет email'),
+                                  trailing: isSelected
+                                      ? const Icon(Icons.check, color: Colors.green)
+                                      : null,
+                                  onTap: () {
+                                    setStateDialog(() {
+                                      selectedUser = isSelected ? null : user;
+                                    });
+                                  },
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  tileColor: isSelected
+                                      ? Theme.of(context).primaryColor.withOpacity(0.1)
+                                      : null,
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, null), // ← Возвращаем null → отмена
+                  child: const Text('Отмена'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, selectedUser), // ← Только если нажали "Назначить"
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF7e61f3),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 1,
+                    shadowColor: Colors.black.withOpacity(0.1),
+                  ),
+                  child: const Text(
+                    'Назначить',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ],
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+              scrollable: true,
+            );
+          },
+        );
+      },
+    );
+
+    // После закрытия диалога
+    if (!mounted) return;
+
+    // Если вернули null → пользователь нажал "Отмена" → ничего не меняем
+    if (result == null) {
+      // Ничего не делаем — состояние остаётся прежним
+      return;
+    }
+
+    // Если вернули пользователя — обновляем
+    if (result != _assignedUser) {
+      setState(() {
+        _assignedUser = result;
+        _assignedTo = result?.id;
+      });
+    }
   }
 
   Future<void> _loadUserId() async {
@@ -426,48 +642,119 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
 
               // Группа
               if (!_isLoadingGroups) ...[
-                Text('Группа', style: theme.textTheme.bodySmall),
-                const SizedBox(height: 4),
-                GestureDetector(
-                  key: _groupKey,
-                  onTap: () {
-                    if (_isGroupMenuOpen) {
-                      setState(() {
-                        _isGroupActive = false;
-                        _isGroupMenuOpen = false;
-                      });
-                      return;
-                    }
-
-                    setState(() {
-                      _isGroupActive = true;
-                      _isGroupMenuOpen = true;
-                    });
-
-                    _showGroupMenu();
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: _isGroupActive ? const Color(0xFF7e61f3) : Colors.grey,
-                        width: 1,
+                if (widget.task?.groupId != null && widget.task?.id != null)
+                  ...[ // Редактирование существующей групповой задачи — нельзя менять группу
+                    Text('Группа', style: theme.textTheme.bodySmall),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey, width: 1),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      borderRadius: BorderRadius.circular(8),
+                      child: Text(
+                        _getGroupName(),
+                        style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey[700]),
+                      ),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          _getGroupName(),
-                          style: theme.textTheme.bodyMedium,
+                    const SizedBox(height: 8),
+                    Text(
+                      'Группу нельзя изменить',
+                      style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
+                    ),
+                  ]
+                else
+                  ...[ // Новая задача или редактирование личной — можно выбрать группу
+                    Text('Группа', style: theme.textTheme.bodySmall),
+                    const SizedBox(height: 4),
+                    GestureDetector(
+                      key: _groupKey,
+                      onTap: () {
+                        if (_isGroupMenuOpen) {
+                          setState(() {
+                            _isGroupActive = false;
+                            _isGroupMenuOpen = false;
+                          });
+                          return;
+                        }
+
+                        setState(() {
+                          _isGroupActive = true;
+                          _isGroupMenuOpen = true;
+                        });
+
+                        _showGroupMenu();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: _isGroupActive ? const Color(0xFF7e61f3) : Colors.grey,
+                            width: 1,
+                          ),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        const Icon(Icons.arrow_drop_down),
-                      ],
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              _getGroupName(),
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                            const Icon(Icons.arrow_drop_down),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+
+                // Кнопка "Назначить участника" — только если выбрана группа
+                if (_groupId != null) ...[
+                  const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final group = await _databaseService.readGroupById(_groupId!);
+                      final canAssign = _creatorId == group?.creatorId || _creatorId == widget.task?.creatorId;
+
+                      if (!canAssign) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Назначать может только создатель группы или задачи')),
+                          );
+                        }
+                        return;
+                      }
+
+                      _showAssignUserDialog();
+                    },
+                    icon: Icon(
+                      _assignedUser != null ? Icons.person : Icons.person_outline,
+                      size: 18,
+                      color: const Color(0xFF7e61f3),
+                    ),
+                    label: Text(
+                      _assignedUser != null
+                          ? 'Назначено: ${_assignedUser!.name}'
+                          : 'Назначить участника',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF7e61f3),
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: _assignedUser != null ? const Color(0xFF7e61f3).withOpacity(0.1) : null,
+                      side: const BorderSide(color: Color(0xFF7e61f3), width: 1.5),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      minimumSize: const Size(double.infinity, 0),
+                      elevation: 0,
+                      shadowColor: Colors.transparent,
                     ),
                   ),
-                ),
+                ],
               ] else ...[
+                // Загрузка групп
                 Text('Группа', style: theme.textTheme.bodySmall),
                 const SizedBox(height: 4),
                 Container(
@@ -497,6 +784,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                             priority: _priority,
                             category: _category,
                             groupId: _groupId,
+                            assigned_to: _assignedTo,
                             updatedAt: now,
                           )
                         : Task(
@@ -508,6 +796,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                             category: _category,
                             groupId: _groupId,
                             creatorId: _creatorId,
+                            assigned_to: _assignedTo,
                             createdAt: now,
                             updatedAt: now,
                             last_sync_at: null,
