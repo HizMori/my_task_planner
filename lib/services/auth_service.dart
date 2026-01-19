@@ -52,27 +52,39 @@ class AuthService {
     return session != null;
   }
 
-  Future<void> syncCurrentUser() async {
+  Future<bool> syncCurrentUser() async {
     final supabase = Supabase.instance.client;
     try {
       final response = await supabase.auth.getUser();
       final supabaseUser = response.user;
-      if (supabaseUser == null) return;
+      if (supabaseUser == null) return true; // нет пользователя
 
-      // Получаем полные данные из таблицы users
       final userResponse = await supabase
           .from('users')
           .select()
           .eq('id', supabaseUser.id)
           .single();
 
-      // Синхронизируем в локальную БД
+      if (userResponse['deleted_at'] != null) {
+        // ✅ Помечаем, что аккаунт удалён, и выходим
+        await supabase.auth.signOut();
+        await deleteToken();
+        await deleteCurrentUserId();
+        await setLoggedIn(false);
+
+        return false; // ❌ Аккаунт удалён
+      }
+
+      // Синхронизируем данные
       await DatabaseService.instance.syncUserFromSupabase(userResponse);
       await DatabaseService.instance.syncGroupsFromSupabase();
       await DatabaseService.instance.syncGroupMembersFromSupabase();
       await DatabaseService.instance.syncTasksFromSupabase();
+
+      return true; // ✅ Успешно
     } catch (e) {
       print('Ошибка синхронизации пользователя: $e');
+      return false;
     }
   }
 }

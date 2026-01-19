@@ -112,7 +112,7 @@ class _AccountScreenState extends State<AccountScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  UserAvatar(user: _user!, radius: 50),
+                  UserAvatar(user: _user!, radius: 40),
                   const SizedBox(width: 16),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

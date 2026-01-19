@@ -7,6 +7,7 @@ class User {
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? lastSyncAt;
+  final DateTime? deletedAt;
 
   User({
     required this.id,
@@ -17,6 +18,7 @@ class User {
     required this.createdAt,
     required this.updatedAt,
     this.lastSyncAt,
+    this.deletedAt,
   });
 
   Map<String, dynamic> toMap() {
@@ -29,6 +31,7 @@ class User {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
       'last_sync_at': lastSyncAt?.toIso8601String(),
+      'deleted_at': deletedAt?.toIso8601String(),
     };
   }
 
@@ -42,6 +45,7 @@ class User {
       createdAt: DateTime.parse(map['created_at']),
       updatedAt: DateTime.parse(map['updated_at']),
       lastSyncAt: map['last_sync_at'] != null ? DateTime.parse(map['last_sync_at']) : null,
+      deletedAt: map['deleted_at'] != null ? DateTime.parse(map['deleted_at']) : null,
     );
   }
 
@@ -54,6 +58,7 @@ class User {
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? lastSyncAt,
+    DateTime? deletedAt,
     }) {
     return User(
       id: id ?? this.id,
@@ -64,6 +69,7 @@ class User {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       lastSyncAt: lastSyncAt ?? this.lastSyncAt,
+      deletedAt: deletedAt ?? this.deletedAt,
     );
   }
 }

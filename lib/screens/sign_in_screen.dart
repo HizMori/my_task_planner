@@ -109,44 +109,40 @@ class _SignInScreenState extends State<SignInScreen> {
     final password = _passwordController.text.trim();
 
     try {
-      // Вход в Supabase Auth
       final authResponse = await supabase.auth.signInWithPassword(
         email: email,
         password: password,
       );
 
-      // Если session null — ошибка (для signIn session должен быть)
       if (authResponse.session == null) {
         _showSnackBar('Ошибка входа: сессия не создана');
         return;
       }
 
-      // Сохраняем токен (если "Запомнить меня" — всегда сохраняем для простоты)
+      // Сохраняем токен
       if (_isRememberMe) {
         await AuthService.instance.saveToken(authResponse.session!.accessToken);
         await AuthService.instance.setLoggedIn(true);
-      } else {}
+      }
 
-      // Fetch пользователя из Supabase по supabase_user_id
-      final userResponse = await supabase
-          .from('users')
-          .select()
-          .eq('id', authResponse.user!.id)
-          .single();  // Ожидаем одну запись
+      // Вызываем syncCurrentUser — теперь без context
+      final syncSuccess = await AuthService.instance.syncCurrentUser();
 
-      if (userResponse.isEmpty) {
-        _showSnackBar('Пользователь не найден');
+      if (!syncSuccess) {
+        // Показываем сообщение, потому что аккаунт удалён
+        _showSnackBar('Ваш аккаунт был удалён. Обратитесь в поддержку.');
         return;
       }
 
-      // Синхронизируем в локальную БД
-      await DatabaseService.instance.syncUserFromSupabase(userResponse);
-      // Сохраняем current_user_id (ID из users)
+      // Сохраняем ID пользователя
+      final userResponse = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', authResponse.user!.id)
+          .single();
       await AuthService.instance.saveCurrentUserId(userResponse['id']);
-      // Синхронизируем данные
-      await AuthService.instance.syncCurrentUser();
 
-      // Переходим на MainScreen
+      // Переход
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const MainScreen()),

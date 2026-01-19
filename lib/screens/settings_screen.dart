@@ -7,6 +7,8 @@ import '../models/user.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'edit_profile_screen.dart';
+import 'welcome_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -42,7 +44,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           .single();
 
       final user = User.fromMap(userResponse);
-      print('✅ Загружен пользователь из Supabase: ${user.avatarUrl}');
+      print('✅ Загружен аватар из Supabase: ${user.avatarUrl}');
 
       // 🔁 Сохраним в локальную БД (опционально — для оффлайна)
       await DatabaseService.instance.updateUser(user);
@@ -133,13 +135,82 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _deleteAccount() async {
+    if (_user == null) return;
+
+    final supabase = Supabase.instance.client;
+    final userId = _user!.id;
+
+    try {
+      // 1. Помечаем как удалённого (soft delete)
+      await supabase
+          .from('users')
+          .update({'deleted_at': DateTime.now().toUtc().toIso8601String()})
+          .eq('id', userId);
+
+      // 2. Очистка локальных данных
+      await DatabaseService.instance.deleteDB();
+      await AuthService.instance.deleteToken();
+      await AuthService.instance.deleteCurrentUserId();
+      await AuthService.instance.setLoggedIn(false);
+
+      // 3. Переход
+      if (context.mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const WelcomeScreen()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка удаления: $e')),
+      );
+    }
+  }
+
+  Future<void> _showDeleteAccountDialog() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Удалить аккаунт?'),
+        content: const Text(
+          'Это действие нельзя отменить. Все ваши данные будут удалены.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Удалить',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    // 🔥 Реализуем удаление аккаунта
+    await _deleteAccount();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Настройки')),
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios, size: 24), 
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -150,14 +221,56 @@ class _SettingsScreenState extends State<SettingsScreen> {
           icon: const Icon(Icons.arrow_back_ios, size: 24), 
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('Настройки'),
+        actions: [
+          // Кнопка "Редактировать"
+          IconButton(
+            icon: const Icon(Icons.edit, size: 24),
+            onPressed: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const EditProfileScreen()),
+              );
+              if (result is User) {
+                setState(() {
+                  _user = result; // Обновляем после возврата
+                });
+              }
+            },
+          ),
+          // Кнопка "Меню"
+          PopupMenuButton<String>(
+            onSelected: (value) async {
+              if (value == 'delete_account') {
+                await _showDeleteAccountDialog();
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'delete_account',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete, size: 18, color: Colors.red),
+                    SizedBox(width: 10),
+                    Text(
+                      'Удалить аккаунт',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            icon: Icon(Icons.more_vert),
+            color: Theme.of(context).scaffoldBackgroundColor,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          SizedBox(width: 8),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            const SizedBox(height: 20),
             // Основной контейнер для центрирования
             Center(
               child: Column(

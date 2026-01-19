@@ -389,7 +389,8 @@ class DatabaseService {
         avatar_url TEXT,
         created_at TEXT,
         updated_at TEXT,
-        last_sync_at TEXT
+        last_sync_at TEXT,
+        deleted_at TEXT
       )
     ''');
 
