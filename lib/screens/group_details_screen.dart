@@ -99,14 +99,12 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen>
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, size: 24), 
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: Text(widget.group.name),
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
         actions: [
           // Кнопка "ещё" с меню
           PopupMenuButton<String>(

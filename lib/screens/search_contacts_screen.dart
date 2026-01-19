@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import '../models/user.dart';
 import '../services/database_service.dart';
+import '../widgets/user_avatar.dart';
 
 class UserListTile extends StatelessWidget {
   final User user;
@@ -16,14 +17,7 @@ class UserListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: CircleAvatar(
-        backgroundImage: user.avatarUrl != null
-            ? NetworkImage(user.avatarUrl!)
-            : null,
-        child: user.avatarUrl == null
-            ? Text(user.name[0].toUpperCase())
-            : null,
-      ),
+      leading: UserAvatar(user: user, radius: 20),
       title: Text(user.name),
       subtitle: Text(user.email ?? 'Нет email'),
       trailing: trailing,

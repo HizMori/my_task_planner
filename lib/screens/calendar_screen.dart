@@ -100,7 +100,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Календарь')),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, size: 24), 
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text('Календарь')
+        ),
       body: Column(
         children: [
           // Кастомный заголовок с кнопками и названием месяца

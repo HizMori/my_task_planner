@@ -87,14 +87,20 @@ class _AccountScreenState extends State<AccountScreen> {
     if (_isLoading) {
       return Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
-        appBar: AppBar(title: const Text('Аккаунт')),
+        appBar: AppBar(title: const Text('Профиль')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(title: const Text('Аккаунт')),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, size: 24), 
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text('Профиль')
+        ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -106,7 +112,7 @@ class _AccountScreenState extends State<AccountScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   CircleAvatar(
-                    radius: 40,
+                    radius: 50,
                     backgroundColor: const Color(0xFF7e61f3).withOpacity(0.15),
                     foregroundImage: _user!.avatarUrl != null ? NetworkImage(_user!.avatarUrl!) : null,
                     child: _user!.avatarUrl != null
@@ -118,7 +124,7 @@ class _AccountScreenState extends State<AccountScreen> {
                             style: const TextStyle(
                               color: Color(0xFF7e61f3),
                               fontWeight: FontWeight.bold,
-                              fontSize: 20,
+                              fontSize: 24,
                             ),
                           ),
                   ),

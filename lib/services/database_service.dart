@@ -579,6 +579,7 @@ class DatabaseService {
 
   Future<int> updateUser(User user) async {
     final db = await database;
+    print('🔄 Обновляю пользователя в локальной БД: ${user.toMap()}');
     return await db.update(
       'users',
       user.toMap(),

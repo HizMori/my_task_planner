@@ -123,7 +123,13 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Создать группу')),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, size: 24), 
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text('Создать группу')
+        ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(

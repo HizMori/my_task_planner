@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import '../models/user.dart';
 import '../services/contacts_repository.dart';
 import 'search_contacts_screen.dart';
+import '../widgets/user_avatar.dart';
 
 class ContactsScreen extends StatefulWidget {
   const ContactsScreen({super.key});
@@ -50,7 +51,13 @@ class _ContactsScreenState extends State<ContactsScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Контакты')),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, size: 24), 
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text('Контакты')
+        ),
       body: Stack(
         children: [
           // Основной контент: поиск и список
@@ -131,14 +138,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: ListTile(
-                                    leading: CircleAvatar(
-                                      backgroundImage: user.avatarUrl != null
-                                          ? NetworkImage(user.avatarUrl!)
-                                          : null,
-                                      child: user.avatarUrl == null
-                                          ? Text(user.name[0].toUpperCase())
-                                          : null,
-                                    ),
+                                    leading: UserAvatar(user: user, radius: 20),
                                     title: Text(user.name),
                                     subtitle: Text(user.email ?? 'Нет email'),
                                   ),

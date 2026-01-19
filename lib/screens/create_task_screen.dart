@@ -5,6 +5,7 @@ import '../models/group.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import '../models/user.dart';
 import 'package:collection/collection.dart';
+import '../widgets/user_avatar.dart';
 
 class CreateTaskScreen extends StatefulWidget {
   // Добавляем возможность передать группу по умолчанию
@@ -209,14 +210,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                                 final user = filteredMembers[index];
                                 final isSelected = selectedUser?.id == user.id;
                                 return ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundImage: user.avatarUrl != null
-                                        ? NetworkImage(user.avatarUrl!)
-                                        : null,
-                                    child: user.avatarUrl == null
-                                        ? Text(user.name[0].toUpperCase())
-                                        : null,
-                                  ),
+                                  leading: UserAvatar(user: user, radius: 20),
                                   title: Text(user.name),
                                   subtitle: Text(user.email ?? 'Нет email'),
                                   trailing: isSelected
@@ -422,6 +416,10 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, size: 24), 
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: Text(widget.task != null ? 'Редактирование' : 'Новая задача'),
         actions: [
           if (widget.task != null) ...[

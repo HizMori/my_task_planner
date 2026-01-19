@@ -5,6 +5,7 @@ import '../services/database_service.dart';
 import 'search_users_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import '../models/group_member.dart';
+import '../widgets/user_avatar.dart';
 
 class GroupMembersScreen extends StatefulWidget {
   final Group group;
@@ -261,16 +262,7 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
                                     horizontal: 16,
                                     vertical: 12,
                                   ),
-                                  leading: CircleAvatar(
-                                    backgroundColor: const Color(0xFF7e61f3).withOpacity(0.15),
-                                    child: Text(
-                                      user.name.characters.take(1).toString().toUpperCase(),
-                                      style: const TextStyle(
-                                        color: Color(0xFF7e61f3),
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
+                                  leading: UserAvatar(user: user, radius: 20),
                                   title: Text(
                                     user.name,
                                     style: isCreator
