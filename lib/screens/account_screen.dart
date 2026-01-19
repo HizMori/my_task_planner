@@ -5,6 +5,7 @@ import '../services/database_service.dart'; // Для fetch пользовате
 import '../models/user.dart'; // Модель
 import 'welcome_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
+import '../widgets/user_avatar.dart';
 
 class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
@@ -111,23 +112,7 @@ class _AccountScreenState extends State<AccountScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundColor: const Color(0xFF7e61f3).withOpacity(0.15),
-                    foregroundImage: _user!.avatarUrl != null ? NetworkImage(_user!.avatarUrl!) : null,
-                    child: _user!.avatarUrl != null
-                        ? null // Если аватар загрузился — он покажется, child не нужен
-                        : Text(
-                            _user!.name.isNotEmpty
-                                ? _user!.name.characters.take(1).toString().toUpperCase()
-                                : '?',
-                            style: const TextStyle(
-                              color: Color(0xFF7e61f3),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 24,
-                            ),
-                          ),
-                  ),
+                  UserAvatar(user: _user!, radius: 50),
                   const SizedBox(width: 16),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

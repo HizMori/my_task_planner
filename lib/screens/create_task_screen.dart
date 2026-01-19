@@ -711,18 +711,22 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                   const SizedBox(height: 16),
                   OutlinedButton.icon(
                     onPressed: () async {
-                      final group = await _databaseService.readGroupById(_groupId!);
-                      final canAssign = _creatorId == group?.creatorId || _creatorId == widget.task?.creatorId;
+                      // Только при редактировании — проверяем права
+                      if (widget.task != null) {
+                        final group = await _databaseService.readGroupById(_groupId!);
+                        final canAssign = _creatorId == group?.creatorId || _creatorId == widget.task?.creatorId;
 
-                      if (!canAssign) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Назначать может только создатель группы или задачи')),
-                          );
+                        if (!canAssign) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Редактировать назначение может только создатель группы или задачи')),
+                            );
+                          }
+                          return;
                         }
-                        return;
                       }
 
+                      // При создании — любой участник может назначить
                       _showAssignUserDialog();
                     },
                     icon: Icon(
