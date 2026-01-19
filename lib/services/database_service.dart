@@ -512,18 +512,29 @@ class DatabaseService {
   }
 
   Future<int> deleteTask(String? id) async {
-    if (id == null) return 0; // Если id нет — нечего удалять
+    if (id == null) return 0;
+
     final db = await database;
-    // 1. Удаляем из Supabase
+    int result = 0;
+
+    // 1. Сначала пытаемся удалить в Supabase
     try {
-      await supabase.from('tasks').delete().eq('id', id);
+      await supabase
+          .from('tasks')
+          .delete()
+          .eq('id', id);
+      
+      print('✅ Задача удалена в Supabase: $id');
     } catch (e) {
-      print('Ошибка удаления задачи в Supabase: $e');
-      // Не блокируем локальное удаление, если Supabase недоступен
+      print('⚠️ Не удалось удалить задачу в Supabase: $e');
+      // Даже если Supabase не ответил — всё равно удаляем локально
     }
 
-    // 2. Удаляем из локальной БД
-    return await db.delete('tasks', where: 'id = ?', whereArgs: [id]);
+    // 2. Удаляем локально (всегда)
+    result = await db.delete('tasks', where: 'id = ?', whereArgs: [id]);
+    print('🗑️ Локально удалено задач: $result');
+
+    return result;
   }
 
   // Удалить все задачи группы
