@@ -45,11 +45,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
       final userTasks = await _db.readUserTasks(userId);
 
-      // Фильтруем: только персональные задачи (без groupId)
-      final personalTasks = userTasks.where((task) => task.groupId == null).toList();
-
       // Фильтруем невыполненные с дедлайном
-      final upcoming = personalTasks
+      final upcoming = userTasks
           .where((task) => !task.is_completed && task.deadline != null)
           .toList()
         ..sort((a, b) => a.deadline!.compareTo(b.deadline!));

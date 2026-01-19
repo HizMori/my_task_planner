@@ -193,8 +193,8 @@ class DatabaseService {
     whereArgs.add(userId);
 
     // 2. Назначен мне
-    whereParts.add('assigned_to LIKE ?');
-    whereArgs.add('%$userId%');
+    whereParts.add('assigned_to = ?');
+    whereArgs.add(userId);
 
     // 3. Принадлежит моей группе
     if (groupIds.isNotEmpty) {
