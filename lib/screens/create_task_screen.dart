@@ -19,6 +19,8 @@ class CreateTaskScreen extends StatefulWidget {
   State<CreateTaskScreen> createState() => _CreateTaskScreenState();
 }
 
+enum _TaskViewMode { create, edit, view }
+
 class _CreateTaskScreenState extends State<CreateTaskScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _titleController = TextEditingController();
@@ -55,11 +57,35 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     _loadUserId().then((_) {
       // Только после того, как _creatorId загружен — грузим группы и задачу
       _loadGroups().then((_) {
+        _determineViewMode();
         if (widget.task != null) {
           _loadTaskData();
         }
       });
     });
+  }
+
+  _TaskViewMode _viewMode = _TaskViewMode.create;
+
+  void _determineViewMode() {
+    if (widget.task == null) {
+      _viewMode = _TaskViewMode.create;
+      return;
+    }
+
+    final task = widget.task!;
+    final isTaskCreator = _creatorId == task.creatorId;
+    final isGroupCreator = _groups.any((g) => g.id == task.groupId && g.creatorId == _creatorId);
+
+    if (isTaskCreator || isGroupCreator) {
+      _viewMode = _TaskViewMode.edit;
+    } else {
+      _viewMode = _TaskViewMode.view;
+    }
+
+    if (mounted) {
+      setState(() {}); // Обновим интерфейс
+    }
   }
 
   Future<void> _loadTaskData() async {
@@ -421,107 +447,288 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, size: 24), 
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(widget.task != null ? 'Редактирование' : 'Новая задача'),
-        actions: [
-          if (widget.task != null) ...[
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert),
-              onSelected: (value) async {
-                if (value == 'delete') {
-                  final confirmed = await showDialog<bool>(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text('Удалить задачу?'),
-                      content: const Text('Эта задача будет безвозвратно удалена.'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context, false),
-                          child: const Text('Отмена'),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.pop(context, true),
-                          child: const Text(
-                            'Удалить',
-                            style: TextStyle(color: Colors.red),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
+      appBar: _buildAppBar(context),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: _viewMode == _TaskViewMode.view 
+          ? _buildViewModeBody(context, theme) 
+          : _buildEditModeBody(context, theme),
+      ),
+    );
+  }
 
-                  if (confirmed == true) {
-                    await _databaseService.deleteTask(widget.task!.id);
-                    if (context.mounted) {
-                      Navigator.pop(context, true); // Возвращаем true, чтобы обновить список
-                    }
-                  }
-                }
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: const [
-                      Icon(Icons.delete, color: Colors.red, size: 18),
-                      SizedBox(width: 10),
-                      Text(
-                        'Удалить задачу',
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontSize: 14,
-                        ),
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
+    return AppBar(
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios, size: 24),
+        onPressed: () => Navigator.of(context).pop(),
+      ),
+      title: Text(
+        _viewMode == _TaskViewMode.create
+            ? 'Новая задача'
+            : _viewMode == _TaskViewMode.edit
+                ? 'Редактирование'
+                : 'Просмотр задачи',
+      ),
+      actions: [
+        // Иконка глаза — только в режиме просмотра
+        if (_viewMode == _TaskViewMode.view)
+          Icon(
+            Icons.visibility,
+            color: Colors.grey[600],
+            size: 20,
+          ),
+        // Меню "Удалить" — только в режиме редактирования
+        if (widget.task != null && _viewMode == _TaskViewMode.edit)
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) async {
+              if (value == 'delete') {
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Удалить задачу?'),
+                    content: const Text('Эта задача будет безвозвратно удалена.'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Отмена'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text('Удалить', style: TextStyle(color: Colors.red)),
                       ),
                     ],
                   ),
+                );
+
+                if (confirmed == true) {
+                  await _databaseService.deleteTask(widget.task!.id);
+                  if (context.mounted) {
+                    Navigator.pop(context, true);
+                  }
+                }
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: const [
+                    Icon(Icons.delete, color: Colors.red, size: 18),
+                    SizedBox(width: 10),
+                    Text('Удалить задачу', style: TextStyle(color: Colors.red, fontSize: 14)),
+                  ],
                 ),
-              ],
-              color: theme.scaffoldBackgroundColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
               ),
-              elevation: 4,
-              offset: const Offset(0, kToolbarHeight - 10),
+            ],
+          ),
+      ],
+    );
+  }
+
+  Widget _buildViewModeBody(BuildContext context, ThemeData theme) {
+    final task = widget.task!;
+
+    return IgnorePointer(
+      ignoring: true,
+      child: Form(
+        child: ListView(
+          children: [
+            const SizedBox(height: 16),
+
+            // Название
+            TextFormField(
+              initialValue: task.title,
+              style: const TextStyle(color: Colors.black),
+              decoration: InputDecoration(
+                labelText: 'Название задачи',
+                labelStyle: theme.textTheme.bodyMedium,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                enabled: false,
+                disabledBorder: OutlineInputBorder( // сохраняем стиль рамки
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Colors.grey),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Описание
+            TextFormField(
+              initialValue: task.description ?? '',
+              style: const TextStyle(color: Colors.black),
+              decoration: InputDecoration(
+                labelText: 'Описание',
+                labelStyle: theme.textTheme.bodyMedium,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                enabled: false,
+                disabledBorder: OutlineInputBorder( // сохраняем стиль рамки
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Colors.grey),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Дедлайн
+            ListTile(
+              title: Text(
+                task.deadline == null
+                    ? 'Нет дедлайна'
+                    : DateTimeFormat()(task.deadline!),
+                style: (theme.textTheme.bodyMedium?.copyWith(
+                  color: task.deadline == null ? Colors.grey : theme.textTheme.bodyMedium?.color,
+                )),
+              ),
+              trailing: const Icon(Icons.calendar_today, color: Colors.grey),
+              enabled: false,
+            ),
+
+            const SizedBox(height: 16),
+
+            // Приоритет
+            _buildDropdownField(
+              label: 'Приоритет',
+              displayText: _getDisplayText(task.priority ?? 'medium'),
+              key: _priorityKey,
+              isActive: false,
+              onTap: () {}, // пустой, чтобы не реагировал
+              theme: theme,
+            ),
+
+            const SizedBox(height: 16),
+
+            // Категория
+            _buildDropdownField(
+              label: 'Категория',
+              displayText: _getDisplayText(task.category ?? 'работа'),
+              key: _categoryKey,
+              isActive: false,
+              onTap: () {},
+              theme: theme,
+            ),
+
+            const SizedBox(height: 16),
+
+            // Группа
+            if (task.groupId != null) ...[
+              Text('Группа', style: theme.textTheme.bodySmall),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey, width: 1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: FutureBuilder<Group?>(
+                  future: _databaseService.readGroupById(task.groupId!),
+                  builder: (context, snapshot) {
+                    final groupName = snapshot.hasData && snapshot.data != null
+                        ? snapshot.data!.name
+                        : 'Загрузка...';
+                    return Text(
+                      groupName,
+                      style: theme.textTheme.bodyMedium,
+                    );
+                  },
+                ),
+              ),
+            ] else ...[
+              Text('Группа', style: theme.textTheme.bodySmall),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey, width: 1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text('Личная задача', style: TextStyle(color: Colors.grey)),
+              ),
+            ],
+
+            const SizedBox(height: 16),
+
+            // Назначенные — как в режиме редактирования
+            if (_selectedUsers.isNotEmpty) ...[
+              Text('Назначено', style: theme.textTheme.bodySmall),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  for (var user in _selectedUsers)
+                    Chip(
+                      label: Text(user.name),
+                      avatar: UserAvatar(user: user, radius: 12),
+                      backgroundColor: const Color(0xFF7e61f3).withOpacity(0.1),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // Создатель
+            Text('Создатель', style: theme.textTheme.bodySmall),
+            const SizedBox(height: 4),
+            FutureBuilder<User?>(
+              future: _databaseService.readUserById(task.creatorId),
+              builder: (context, snapshot) {
+                final creatorName = snapshot.hasData && snapshot.data != null
+                    ? snapshot.data!.name
+                    : 'Загрузка...';
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey, width: 1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(creatorName, style: theme.textTheme.bodyMedium),
+                );
+              },
             ),
           ],
-        ],
+        ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              const SizedBox(height: 16),
-              // Название
-              TextFormField(
-                controller: _titleController,
-                decoration: InputDecoration(
-                  labelText: 'Название задачи',
-                  hintText: 'Например: поесть, поспать',
-                  labelStyle: theme.textTheme.bodyMedium,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+    );
+  }
+
+  Widget _buildEditModeBody(BuildContext context, ThemeData theme) {
+    return IgnorePointer(
+      ignoring: _viewMode == _TaskViewMode.view,
+      child: Form(
+        key: _formKey,
+        child: ListView(
+          children: [
+            const SizedBox(height: 16),
+            // Название
+            TextFormField(
+              controller: _titleController,
+              decoration: InputDecoration(
+                labelText: 'Название задачи',
+                hintText: 'Например: поесть, поспать',
+                labelStyle: theme.textTheme.bodyMedium,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
                   return 'Введите название';
-                  }
-                  if (value.trim().length < 2) {
-                    return 'Название слишком короткое';
-                  }
+                }
+                if (value.trim().length < 2) {
+                  return 'Название слишком короткое';
+                }
                   return null;
                 },
                 textInputAction: TextInputAction.done,
               ),
-
               const SizedBox(height: 16),
-
               // Описание
               TextFormField(
                 controller: _descriptionController,
@@ -604,6 +811,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                     }),
                   );
                 },
+                theme: theme,
               ),
 
               const SizedBox(height: 16),
@@ -640,6 +848,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                     }),
                   );
                 },
+                theme: theme,
               ),
 
               const SizedBox(height: 16),
@@ -686,7 +895,6 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                           _isGroupActive = true;
                           _isGroupMenuOpen = true;
                         });
-
                         _showGroupMenu();
                       },
                       child: Container(
@@ -717,6 +925,10 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                   const SizedBox(height: 16),
                   OutlinedButton.icon(
                     onPressed: () async {
+                      // Если режим просмотра — ничего не делаем
+                      if (_viewMode == _TaskViewMode.view) {
+                        return;
+                      }
                       // Только при редактировании — проверяем права
                       if (widget.task != null) {
                         final group = await _databaseService.readGroupById(_groupId!);
@@ -738,21 +950,34 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                     icon: Icon(
                       _selectedUsers.isEmpty ? Icons.person_outline : Icons.person,
                       size: 18,
-                      color: const Color(0xFF7e61f3),
+                      color: _viewMode == _TaskViewMode.view
+                          ? Colors.grey
+                          : const Color(0xFF7e61f3),
                     ),
                     label: Text(
                        _selectedUsers.isEmpty
                           ? 'Назначить участника'
                           : 'Назначено: ${_selectedUsers.length}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
-                        color: Color(0xFF7e61f3),
+                        color: _viewMode == _TaskViewMode.view
+                            ? Colors.grey
+                            : const Color(0xFF7e61f3),
                       ),
                     ),
                     style: OutlinedButton.styleFrom(
-                      backgroundColor: _selectedUsers.isNotEmpty ? const Color(0xFF7e61f3).withOpacity(0.1) : null,
-                      side: const BorderSide(color: Color(0xFF7e61f3), width: 1.5),
+                      backgroundColor: _selectedUsers.isNotEmpty
+                          ? (_viewMode == _TaskViewMode.view
+                              ? Colors.grey.withOpacity(0.1)
+                              : const Color(0xFF7e61f3).withOpacity(0.1))
+                          : null,
+                      side: BorderSide(
+                        color: _viewMode == _TaskViewMode.view
+                            ? Colors.grey
+                            : const Color(0xFF7e61f3),
+                        width: 1.5,
+                      ),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       minimumSize: const Size(double.infinity, 0),
@@ -801,7 +1026,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
 
               // Кнопка Сохранить
               ElevatedButton(
-                onPressed: () async {
+                onPressed: _viewMode == _TaskViewMode.view ? null : () async {
                   if (_formKey.currentState!.validate()) {
                     _formKey.currentState!.save();
                     final now = DateTime.now();
@@ -855,7 +1080,6 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                     // Синхронизация
                     await _databaseService.syncTasksToSupabase();
                     await _databaseService.syncTaskAssigneesToSupabase();
-
                     // Сброс формы только при создании
                     if (!isEditing) {
                       setState(() {
@@ -879,7 +1103,6 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                 child: Text(widget.task != null ? 'Обновить' : 'Сохранить'),
               ),
             ],
-          ),
         ),
       ),
     );
@@ -891,6 +1114,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     required GlobalKey key,
     required bool isActive,
     required VoidCallback onTap,
+    required ThemeData theme,
   }) {
     final theme = Theme.of(context);
     return Column(
