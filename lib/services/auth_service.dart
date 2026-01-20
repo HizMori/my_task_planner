@@ -80,6 +80,7 @@ class AuthService {
       await DatabaseService.instance.syncGroupsFromSupabase();
       await DatabaseService.instance.syncGroupMembersFromSupabase();
       await DatabaseService.instance.syncTasksFromSupabase();
+      await DatabaseService.instance.syncTaskAssigneesFromSupabase();
 
       return true; // ✅ Успешно
     } catch (e) {

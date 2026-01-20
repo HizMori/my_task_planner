@@ -8,6 +8,7 @@ import '../models/message.dart';
 import '../models/app_settings.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import 'package:uuid/uuid.dart';
+import '../models/task_assignee.dart';
 
 class DatabaseService {
   static final DatabaseService instance = DatabaseService._init();
@@ -193,7 +194,7 @@ class DatabaseService {
     whereArgs.add(userId);
 
     // 2. Назначен мне
-    whereParts.add('assigned_to = ?');
+    whereParts.add('id IN (SELECT task_id FROM task_assignees WHERE user_id = ?)');
     whereArgs.add(userId);
 
     // 3. Принадлежит моей группе
@@ -363,12 +364,25 @@ class DatabaseService {
         priority TEXT NOT NULL,
         category TEXT NOT NULL,
         is_completed INTEGER NOT NULL DEFAULT 0,
-        assigned_to TEXT,
         group_id TEXT,
         creator_id TEXT,
         created_at TEXT,
         updated_at TEXT,
         last_sync_at TEXT
+      )
+    ''');
+
+    // Таблица делегированных задач
+    await db.execute('''
+      CREATE TABLE task_assignees (
+        task_id TEXT,
+        user_id TEXT,
+        assigned_at TEXT,
+        updated_at TEXT,
+        last_sync_at TEXT,
+        PRIMARY KEY (task_id, user_id),
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     ''');
 
@@ -471,6 +485,64 @@ class DatabaseService {
     );
   }
 
+  Future<void> syncTaskAssigneesFromSupabase() async {
+    try {
+      final lastSync = await _getLastSyncTime('task_assignees');
+      final response = await supabase
+          .from('task_assignees')
+          .select()
+          .gt('updated_at', lastSync.toIso8601String());
+
+      final db = await database;
+
+      for (var item in response) {
+        final assignee = TaskAssignee.fromMap(item);
+        await db.insert(
+          'task_assignees',
+          assignee.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+
+      await _setLastSyncTime('task_assignees', DateTime.now());
+    } catch (e) {
+      print('Ошибка синхронизации назначенных: $e');
+    }
+  }
+
+  Future<void> syncTaskAssigneesToSupabase() async {
+    try {
+      final db = await database;
+      final result = await db.query(
+        'task_assignees',
+        where: 'updated_at > last_sync_at OR last_sync_at IS NULL',
+      );
+
+      final assigneesToSync = result.map((e) => TaskAssignee.fromMap(e)).toList();
+
+      for (var assignee in assigneesToSync) {
+        final data = {
+          'task_id': assignee.taskId,
+          'user_id': assignee.userId,
+          'assigned_at': assignee.assignedAt.toIso8601String(),
+          'updated_at': assignee.updatedAt.toIso8601String(),
+          'last_sync_at': DateTime.now().toIso8601String(),
+        };
+
+        await supabase.from('task_assignees').upsert(data);
+
+        await db.update(
+          'task_assignees',
+          {'last_sync_at': DateTime.now().toIso8601String()},
+          where: 'task_id = ? AND user_id = ?',
+          whereArgs: [assignee.taskId, assignee.userId],
+        );
+      }
+    } catch (e) {
+      print('Ошибка выгрузки назначенных в Supabase: $e');
+    }
+  }
+
   // Возвращает группы, в которых состоит пользователь
   Future<List<Group>> readUserGroups(String userId) async {
     final db = await database;
@@ -482,6 +554,59 @@ class DatabaseService {
       ORDER BY g.name
     ''', [userId]);
     return result.map((map) => Group.fromMap(map)).toList();
+  }
+
+  // --- CRUD для назначенных пользователей (делегатов) ---
+
+  Future<void> createTaskAssignee(TaskAssignee assignee) async {
+    final db = await database;
+    await db.insert(
+      'task_assignees',
+      assignee.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> deleteTaskAssignee(String taskId, String userId) async {
+    final db = await database;
+    await db.delete(
+      'task_assignees',
+      where: 'task_id = ? AND user_id = ?',
+      whereArgs: [taskId, userId],
+    );
+  }
+
+  Future<List<TaskAssignee>> readTaskAssignees(String taskId) async {
+    final db = await database;
+    final result = await db.query(
+      'task_assignees',
+      where: 'task_id = ?',
+      whereArgs: [taskId],
+    );
+    return result.map((e) => TaskAssignee.fromMap(e)).toList();
+  }
+
+  Future<List<TaskAssignee>> readUserTaskAssignees(String userId) async {
+    final db = await database;
+    final result = await db.query(
+      'task_assignees',
+      where: 'user_id = ?',
+      whereArgs: [userId],
+    );
+    return result.map((e) => TaskAssignee.fromMap(e)).toList();
+  }
+
+  Future<List<TaskAssignee>> readAllTaskAssignees() async {
+    final db = await database;
+    final result = await db.query('task_assignees');
+    return result.map((e) => TaskAssignee.fromMap(e)).toList();
+  }
+
+  // Удалить всех назначенных для задачи
+  Future<void> deleteAllAssigneesByTaskId(String? taskId) async {
+    if (taskId == null) return;
+    final db = await database;
+    await db.delete('task_assignees', where: 'task_id = ?', whereArgs: [taskId]);
   }
 
   final _uuid = Uuid();

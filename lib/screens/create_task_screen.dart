@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import '../models/user.dart';
 import 'package:collection/collection.dart';
 import '../widgets/user_avatar.dart';
+import '../models/task_assignee.dart';
 
 class CreateTaskScreen extends StatefulWidget {
   // Добавляем возможность передать группу по умолчанию
@@ -27,8 +28,8 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   String _category = 'работа';
   String? _groupId; // null — значит личная задача
   late String _creatorId; // реальный ID
-  String? _assignedTo; // ID пользователя, которому делегирована задача
-  User? _assignedUser; // Для отображения имени/аватара
+  List<String> _selectedUserIds = []; // ID назначенных
+  List<User> _selectedUsers = []; // Назначенные пользователи
 
   final DatabaseService _databaseService = DatabaseService.instance;
 
@@ -74,18 +75,24 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
         _category = task.category ?? 'работа';
         _groupId = task.groupId;
         _creatorId = task.creatorId;
-        _assignedTo = task.assigned_to;
       });
     }
 
-    if (_assignedTo != null) {
-      final user = await _databaseService.readUserById(_assignedTo!);
+    // Загрузка назначенных пользователей
+    if (task.id != null) {
+      final assignees = await _databaseService.readTaskAssignees(task.id!);
+      final userIds = assignees.map((a) => a.userId).toList();
+      final users = await _databaseService.readAllUsers();
+      final selectedUsers = users.where((u) => userIds.contains(u.id)).toList();
+
       if (mounted) {
         setState(() {
-          _assignedUser = user;
+          _selectedUserIds = userIds;
+          _selectedUsers = selectedUsers;
         });
       }
-    } 
+    }
+    
     print('Контроллеры заполнены: title="${_titleController.text}", description="${_descriptionController.text}"');
   }
 
@@ -146,15 +153,13 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     }
 
     // Сохраняем начальное состояние
-    final User? initialUser = _assignedUser;
-    User? selectedUser = _assignedUser; // Текущий выбор в диалоге
+    Set<String> selectedUserIds = _selectedUserIds.toSet(); // Текущий выбор в диалоге
 
-    final result = await showDialog<User?>(
+    final result = await showDialog<Set<String>>(
       context: context,
       builder: (context) {
         final TextEditingController searchController = TextEditingController();
         List<User> filteredMembers = allMembers;
-
         return StatefulBuilder(
           builder: (context, setStateDialog) {
             return AlertDialog(
@@ -184,8 +189,6 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      autofocus: true,
-                      textInputAction: TextInputAction.search,
                       onChanged: (query) {
                         if (query.trim().isEmpty) {
                           filteredMembers = allMembers;
@@ -208,7 +211,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                               itemCount: filteredMembers.length,
                               itemBuilder: (context, index) {
                                 final user = filteredMembers[index];
-                                final isSelected = selectedUser?.id == user.id;
+                                final isSelected = selectedUserIds.contains(user.id);
                                 return ListTile(
                                   leading: UserAvatar(user: user, radius: 20),
                                   title: Text(user.name),
@@ -218,7 +221,11 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                                       : null,
                                   onTap: () {
                                     setStateDialog(() {
-                                      selectedUser = isSelected ? null : user;
+                                      if (isSelected) {
+                                        selectedUserIds.remove(user.id);
+                                      } else {
+                                        selectedUserIds.add(user.id);
+                                      }
                                     });
                                   },
                                   shape: RoundedRectangleBorder(
@@ -240,7 +247,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                   child: const Text('Отмена'),
                 ),
                 ElevatedButton(
-                  onPressed: () => Navigator.pop(context, selectedUser), // ← Только если нажали "Назначить"
+                  onPressed: () => Navigator.pop(context, selectedUserIds), // ← Только если нажали "Назначить"
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF7e61f3),
                     foregroundColor: Colors.white,
@@ -268,16 +275,15 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     if (!mounted) return;
 
     // Если вернули null → пользователь нажал "Отмена" → ничего не меняем
-    if (result == null) {
-      // Ничего не делаем — состояние остаётся прежним
-      return;
-    }
+    if (result == null) return;
 
-    // Если вернули пользователя — обновляем
-    if (result != _assignedUser) {
+    if (result != null && mounted) {
+      final users = await _databaseService.readAllUsers();
+      final selectedUsers = users.where((u) => result.contains(u.id)).toList();
+
       setState(() {
-        _assignedUser = result;
-        _assignedTo = result?.id;
+        _selectedUserIds = result.toList();
+        _selectedUsers = selectedUsers;
       });
     }
   }
@@ -730,14 +736,14 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                       _showAssignUserDialog();
                     },
                     icon: Icon(
-                      _assignedUser != null ? Icons.person : Icons.person_outline,
+                      _selectedUsers.isEmpty ? Icons.person_outline : Icons.person,
                       size: 18,
                       color: const Color(0xFF7e61f3),
                     ),
                     label: Text(
-                      _assignedUser != null
-                          ? 'Назначено: ${_assignedUser!.name}'
-                          : 'Назначить участника',
+                       _selectedUsers.isEmpty
+                          ? 'Назначить участника'
+                          : 'Назначено: ${_selectedUsers.length}',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
@@ -745,7 +751,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                       ),
                     ),
                     style: OutlinedButton.styleFrom(
-                      backgroundColor: _assignedUser != null ? const Color(0xFF7e61f3).withOpacity(0.1) : null,
+                      backgroundColor: _selectedUsers.isNotEmpty ? const Color(0xFF7e61f3).withOpacity(0.1) : null,
                       side: const BorderSide(color: Color(0xFF7e61f3), width: 1.5),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       padding: const EdgeInsets.symmetric(vertical: 16),
@@ -754,6 +760,28 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                       shadowColor: Colors.transparent,
                     ),
                   ),
+                  // Показываем выбранных пользователей
+                  if (_selectedUsers.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        for (var user in _selectedUsers)
+                          Chip(
+                            label: Text(user.name),
+                            avatar: UserAvatar(user: user, radius: 12),
+                            backgroundColor: const Color(0xFF7e61f3).withOpacity(0.1),
+                            deleteIcon: const Icon(Icons.close, size: 16),
+                            onDeleted: () {
+                              setState(() {
+                                _selectedUsers.remove(user);
+                                _selectedUserIds.remove(user.id);
+                              });
+                            },
+                          ),
+                      ],
+                    ),
+                  ],
                 ],
               ] else ...[
                 // Загрузка групп
@@ -786,7 +814,6 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                             priority: _priority,
                             category: _category,
                             groupId: _groupId,
-                            assigned_to: _assignedTo,
                             updatedAt: now,
                           )
                         : Task(
@@ -798,7 +825,6 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                             category: _category,
                             groupId: _groupId,
                             creatorId: _creatorId,
-                            assigned_to: _assignedTo,
                             createdAt: now,
                             updatedAt: now,
                             last_sync_at: null,
@@ -811,7 +837,24 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                       await _databaseService.createTask(task);
                     }
 
+                    // Удаляем старые назначения
+                    await _databaseService.deleteAllAssigneesByTaskId(task.id);
+
+                    // Добавляем новые
+                    for (final userId in _selectedUserIds) {
+                      final assignee = TaskAssignee(
+                        taskId: task.id!,
+                        userId: userId,
+                        assignedAt: now,
+                        updatedAt: now,
+                        lastSyncAt: null,
+                      );
+                      await _databaseService.createTaskAssignee(assignee);
+                    }
+
+                    // Синхронизация
                     await _databaseService.syncTasksToSupabase();
+                    await _databaseService.syncTaskAssigneesToSupabase();
 
                     // Сброс формы только при создании
                     if (!isEditing) {
@@ -822,8 +865,10 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                         _priority = 'medium';
                         _category = 'other';
                         _groupId = null;
+                        _selectedUserIds.clear();
+                        _selectedUsers.clear();
+                        _formKey.currentState?.reset();
                       });
-                      _formKey.currentState?.reset();
                     }
 
                     if (context.mounted) {

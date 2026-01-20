@@ -5,6 +5,8 @@ import '../models/user.dart';
 import '../services/auth_service.dart';
 import '../widgets/online_status_icon.dart';
 import 'create_task_screen.dart';
+import '../models/task_assignee.dart';
+import '../models/task_assignee.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,6 +21,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final DatabaseService _db = DatabaseService.instance;
   List<Task> _upcomingTasks = [];
   String? _userId; 
+  Map<String, List<String>> _taskAssigneesCache = {};
 
   @override
   void initState() {
@@ -52,6 +55,15 @@ class _HomeScreenState extends State<HomeScreen> {
         ..sort((a, b) => a.deadline!.compareTo(b.deadline!));
 
       _upcomingTasks = upcoming.take(10).toList();
+
+      // Загружаем назначенных для всех задач
+      final allAssignees = await _db.readAllTaskAssignees();
+      _taskAssigneesCache = {};
+      for (final assignee in allAssignees) {
+        _taskAssigneesCache
+            .putIfAbsent(assignee.taskId, () => [])
+            .add(assignee.userId);
+      }
 
       setState(() {
         _user = user;
@@ -294,7 +306,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ],
                   ),
-                  if (task.assigned_to != null && task.assigned_to == userId)
+                  if (task.id != null && _taskAssigneesCache[task.id]?.contains(userId) == true)
                     Row(
                       children: [
                         Icon(Icons.person, size: 12, color: const Color(0xFF7e61f3)),

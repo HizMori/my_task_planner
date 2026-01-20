@@ -8,7 +8,6 @@ class Task {
   final String? priority; // Приоритет задачи (например, "low", "medium", "high")
   final String? category; // Категория задачи (например, "работа", "личное")
   final bool is_completed; // Статус выполнения задачи (true — выполнена, false — нет)
-  final String? assigned_to; // Кому назначена задача (например, UID контакта, опционально)
   final String? groupId;  // ID группы, если групповая
   final String creatorId;  // ID создателя
   final DateTime? createdAt;
@@ -24,7 +23,6 @@ class Task {
     required this.priority, // Обязательное поле — приоритет
     required this.category, // Обязательное поле — категория
     this.is_completed = false, // По умолчанию задача не выполнена
-    this.assigned_to, // Назначение (необязательно)
     this.groupId,
     required this.creatorId,
     required this.createdAt,
@@ -42,7 +40,6 @@ class Task {
       'priority': priority, // Приоритет
       'category': category, // Категория
       'is_completed': is_completed ? 1 : 0, // Преобразуем bool в int (1 — выполнена, 0 — нет)
-      'assigned_to': assigned_to, // Кому назначена задача
       'group_id': groupId,
       'creator_id': creatorId,
       'created_at': createdAt?.toIso8601String(),
@@ -61,7 +58,6 @@ class Task {
     priority: map['priority'] ?? 'medium', // Извлекаем приоритет
     category: map['category'] ?? 'other', // Извлекаем категорию
     is_completed: map['is_completed'] == 1, // Исправлено на is_completed
-    assigned_to: map['assigned_to'],
     groupId: map['group_id'],
     creatorId: map['creator_id'].toString(),
     createdAt: map['created_at'] != null ? DateTime.parse(map['created_at']) : null,
@@ -80,7 +76,6 @@ class Task {
     'priority': priority, // 'low', 'medium', 'high'
     'category': category, // 'work', 'personal', 'study', 'other'
     'is_completed': is_completed,
-    'assigned_to': assigned_to,
     'group_id': groupId,
     'creator_id': creatorId,
     'created_at': createdAt?.toIso8601String(),
@@ -99,7 +94,6 @@ class Task {
     priority: map['priority'] ?? 'medium',
     category: map['category'] ?? 'other',
     is_completed: map['is_completed'] == true,
-    assigned_to: map['assigned_to'],
     groupId: map['group_id'],
     creatorId: map['creator_id'],
     createdAt: map['created_at'] != null ? DateTime.parse(map['created_at']) : null,
@@ -117,7 +111,6 @@ class Task {
     String? priority,
     String? category,
     bool? is_completed,
-    String? assigned_to,
     String? groupId, 
     String? creatorId, 
     DateTime? createdAt, 
@@ -132,7 +125,6 @@ class Task {
       priority: priority ?? this.priority,
       category: category ?? this.category,
       is_completed: is_completed ?? this.is_completed,
-      assigned_to: assigned_to ?? this.assigned_to,
       groupId: groupId ?? this.groupId,
       creatorId: creatorId ?? this.creatorId,
       createdAt: createdAt ?? this.createdAt,

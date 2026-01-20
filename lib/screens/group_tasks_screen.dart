@@ -5,6 +5,7 @@ import '../services/database_service.dart';
 import 'create_task_screen.dart';
 import '../main.dart';
 import '../models/user.dart';
+import '../models/task_assignee.dart';
 
 class GroupTasksScreen extends StatefulWidget {
   final Group group;
@@ -20,6 +21,7 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
   List<Task> _tasks = [];
   bool _isLoading = true;
   Map<String, User?> _groupUsersCache = {};
+  Map<String, List<User>> _taskAssignees = {};
 
   @override
   void initState() {
@@ -30,6 +32,7 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
       await _loadGroupMembersAndCache(); 
       await _db.syncGroupsFromSupabase();
       await _db.syncGroupMembersFromSupabase(); 
+      await _db.syncTaskAssigneesFromSupabase();
       _loadTasks();
     });
   }
@@ -119,22 +122,39 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
       final groupTasks = allTasks
           .where((task) => task.groupId == widget.group.id)
           .toList();
-      
+
       if (mounted) {
         setState(() {
           _tasks = groupTasks;
+        });
+      }
+
+      // Загружаем назначенных
+      for (final task in groupTasks) {
+        final assignees = await _db.readTaskAssignees(task.id!);
+        final userIds = assignees.map((a) => a.userId).toList();
+        final users = await _db.readAllUsers();
+        final assignedUsers = users.where((u) => userIds.contains(u.id)).toList();
+
+        if (mounted) {
+          setState(() {
+            _taskAssignees[task.id!] = assignedUsers;
+          });
+        }
+      }
+
+      if (mounted) {
+        setState(() {
           _isLoading = false;
         });
       }
     } catch (e) {
+      print('Ошибка: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка загрузки задач: $e')),
-      );
     }
   }
 
@@ -336,20 +356,36 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
   }
 
   Widget _buildAssignedTo(Task task) {
-    if (task.assigned_to == null) return SizedBox();
+    final assignedUsers = _taskAssignees[task.id] ?? [];
+    if (assignedUsers.isEmpty) return SizedBox();
 
-    final user = _groupUsersCache[task.assigned_to];
-    final displayName = user?.name ?? 'Участник';
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    return Wrap(
+      spacing: 8,
       children: [
-        Icon(Icons.person, size: 12, color: Color(0xFF7e61f3)),
-        SizedBox(width: 4),
-        Text(
-          'Назначено: $displayName',
-          style: TextStyle(fontSize: 10, color: Color(0xFF7e61f3)),
-        ),
+        for (var user in assignedUsers)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.person, size: 12, color: const Color(0xFF7e61f3)),
+              const SizedBox(width: 4),
+              Text(
+                user.name,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: const Color(0xFF7e61f3),
+                ),
+              ),
+            ],
+          ),
+        if (assignedUsers.length > 3)
+          Text(
+            '+${assignedUsers.length - 3}',
+            style: const TextStyle(
+              fontSize: 10,
+              color: Color(0xFF7e61f3),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
       ],
     );
   }
