@@ -38,6 +38,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
   AnimationController? _menuAnimationController;
   final Map<String, GlobalKey> _messageContentKeys = {}; // ← НОВОЕ: для Column
   OverlayEntry? _messageMenuEntry;
+  TextEditingValue? _lastTextValue; // для undo
 
   @override
   void initState() {
@@ -517,6 +518,15 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
             ),
             child: Row(
               children: [
+                // Кнопка Undo (только если есть что отменять)
+                if (_lastTextValue != null)
+                  FloatingActionButton(
+                    onPressed: _undoLastEmoji,
+                    backgroundColor: Colors.grey[500],
+                    mini: true,
+                    child: const Icon(Icons.undo, color: Colors.white, size: 18),
+                  ),
+                const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
                     controller: _textController,
@@ -531,6 +541,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                       contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     ),
                     onSubmitted: (value) => _sendMessage(),
+                    onChanged: (text) {
+                      _lastTextValue = _textController.value; // Сохраняем перед изменением
+                      _handleTextChange(text);
+                    },
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -550,6 +564,56 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
         ],
       ),
     );
+  }
+
+  void _undoLastEmoji() {
+    if (_lastTextValue == null) return;
+
+    _textController.value = _lastTextValue!;
+    _lastTextValue = null; // Сбрасываем — только одна отмена
+  }
+
+  final List<(RegExp, String)> _emojiPatterns = [
+    (RegExp(r'(?<!\S):\)(?!\S)'), '😊'),  // :) как отдельное слово
+    (RegExp(r'(?<!\S):\((?!\S)'), '☹️'),   // :(
+    (RegExp(r'(?<!\S);\)(?!\S)'), '😉'),  // ;)
+    (RegExp(r'(?<!\S):D(?!\S)'), '😄'),   // :D
+    (RegExp(r'(?<!\S):P(?!\S)'), '😛'),   // :P
+    (RegExp(r'(?<!\S):O(?!\S)'), '😮'),   // :O
+    (RegExp(r'(?<!\S):3(?!\S)'), '😺'),   // :3
+    (RegExp(r'(?<!\S)<3(?!\S)'), '❤️'),   // <3
+    (RegExp(r'(?<!\S):\*(?!\S)'), '😘'),  // :*
+    (RegExp(r'(?<!\S);P(?!\S)'), '😜'),  // ;P
+  ];
+
+  void _handleTextChange(String text) {
+    final selection = _textController.selection;
+    final cursorPosition = selection.base.offset;
+
+    for (final (RegExp pattern, String emoji) in _emojiPatterns) {
+      final matches = pattern.allMatches(text);
+      for (final match in matches) {
+        // Проверим, что match охватывает позицию курсора или её можно заменить
+        if (match.start < cursorPosition && match.end >= cursorPosition) {
+          // Сохраняем значение до замены
+          _lastTextValue = TextEditingValue(
+            text: _textController.text,
+            selection: _textController.selection,
+          );
+
+          final newText = text.replaceRange(match.start, match.end, emoji);
+          final newCursorPosition = match.start + emoji.length;
+
+          _textController.value = TextEditingValue(
+            text: newText,
+            selection: TextSelection.collapsed(offset: newCursorPosition),
+            composing: TextRange.empty,
+          );
+
+          return; // Заменяем только одно вхождение за раз
+        }
+      }
+    }
   }
 
   Widget _buildDateLabel(DateTime date) {
