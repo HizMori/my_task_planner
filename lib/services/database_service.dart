@@ -330,6 +330,8 @@ class DatabaseService {
             'sender_id': message.senderId,
             'content': message.content,
             'sent_at': message.sentAt.toIso8601String(),
+            'sender_name': message.senderName ?? 'Пользователь',
+            'is_edited': message.isEdited ? 1 : 0,
           };
 
           await supabase.from('messages').insert(data);
@@ -441,6 +443,7 @@ class DatabaseService {
         content TEXT NOT NULL,
         sent_at TEXT,
         sender_name TEXT,
+        is_edited INTEGER DEFAULT 0,
         last_sync_at TEXT
       )
     ''');
@@ -814,7 +817,7 @@ class DatabaseService {
     );
   }
 
-  Future<int> deleteMessage(int id) async {
+  Future<int> deleteMessage(String id) async {
     final db = await database;
     return await db.delete('messages', where: 'id = ?', whereArgs: [id]);
   }
