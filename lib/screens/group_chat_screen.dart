@@ -663,7 +663,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                     Padding(
                       padding: const EdgeInsets.only(left: 12, right: 12, bottom: 8),
                       child: Row(
-                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           if (message.isEdited)
                             const Text(
@@ -672,7 +672,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                                 fontSize: 11,
                                 color: Colors.white70,
                               ),
-                            ),
+                            )
+                          else
+                            const SizedBox(),
                           Text(
                             _formatTime(message.sentAt),
                             style: TextStyle(
