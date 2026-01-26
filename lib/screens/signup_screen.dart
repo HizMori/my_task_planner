@@ -235,14 +235,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
     final isDarkMode = theme.brightness == Brightness.dark;
 
     // Цвета в зависимости от темы
-    final backgroundColor = isDarkMode ? Colors.grey[900] : const Color(0xFFeef4ff);
-    final textColor = isDarkMode ? Colors.white : Colors.black;
     final hintColor = isDarkMode ? Colors.grey[400] : Colors.grey;
     final fieldFillColor = isDarkMode ? Colors.grey[800] : Colors.white;
     final dividerColor = isDarkMode ? Colors.grey[700] : const Color.fromARGB(84, 158, 158, 158);
 
     return Scaffold(
-      backgroundColor: backgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: LoadingOverlay(
         isLoading: _isLoading,
         child: SafeArea(
@@ -261,20 +259,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   const SizedBox(height: 20),
                   Text(
                     'Task manager',
-                    style: GoogleFonts.poppins(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: textColor,
-                    ),
+                    style: theme.textTheme.headlineLarge,
+                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 15),
                   Text(
                     'Регистрация',
-                    style: GoogleFonts.poppins(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: textColor,
-                    ),
+                    style: theme.textTheme.headlineSmall,
+                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 20),
                   // Поле Login
@@ -461,20 +453,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   ElevatedButton(
                     onPressed: _handleSignUp,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF7e61f3),
-                      foregroundColor: Colors.white,
                       minimumSize: const Size(double.infinity, 50),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Text(
-                      'Регистрация',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    ).merge(Theme.of(context).elevatedButtonTheme.style),
+                    child: Text('Регистрация'),
                   ),
                   const SizedBox(height: 20),
                   // OR

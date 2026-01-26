@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'sign_in_screen.dart';
 import 'signup_screen.dart';
+import '../themes/app_theme.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -102,7 +103,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Task Manager',
+                    'Task manager',
                     style: theme.textTheme.headlineLarge,
                     textAlign: TextAlign.center,
                   ),

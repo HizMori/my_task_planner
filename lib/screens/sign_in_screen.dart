@@ -5,6 +5,7 @@ import '../main.dart';
 import 'signup_screen.dart';
 import '../services/database_service.dart'; // Локальная БД
 import '../services/auth_service.dart'; // Auth сервис
+import '../themes/app_theme.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -167,7 +168,6 @@ class _SignInScreenState extends State<SignInScreen> {
     final isDarkMode = theme.brightness == Brightness.dark;
 
     // Цвета в зависимости от темы
-    final backgroundColor = isDarkMode ? Colors.grey[900] : const Color(0xFFeef4ff);
     final textColor = isDarkMode ? Colors.white : Colors.black;
     final hintColor = isDarkMode ? Colors.grey[400] : Colors.grey;
     final fieldFillColor = isDarkMode ? Colors.grey[800] : Colors.white;
@@ -175,7 +175,7 @@ class _SignInScreenState extends State<SignInScreen> {
     final dividerColor = isDarkMode ? Colors.grey[700] : const Color.fromARGB(84, 158, 158, 158);
 
     return Scaffold(
-      backgroundColor: backgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: LoadingOverlay(
         isLoading: _isLoading,
         child: SafeArea(
@@ -199,21 +199,13 @@ class _SignInScreenState extends State<SignInScreen> {
                     const SizedBox(height: 15),
                     Text(
                       'Task manager',
-                      style: GoogleFonts.poppins(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: textColor,
-                      ),
+                      style: theme.textTheme.headlineLarge,
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 15),
                     Text(
                       'Вход',
-                      style: GoogleFonts.poppins(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: textColor,
-                      ),
+                      style: theme.textTheme.headlineSmall,
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 20),
@@ -370,20 +362,9 @@ class _SignInScreenState extends State<SignInScreen> {
                     ElevatedButton(
                       onPressed: _handleLogin,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF7e61f3),
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 50),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        'Вход',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      minimumSize: const Size(double.infinity, 50),
+                    ).merge(Theme.of(context).elevatedButtonTheme.style),
+                      child: Text('Вход'),
                     ),
                     const SizedBox(height: 20),
                     // ИЛИ с полосками

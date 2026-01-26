@@ -368,6 +368,9 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     required ValueChanged<String> onChanged,
     required VoidCallback onClose,
   }) async {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+
     final RenderBox renderBox = key.currentContext!.findRenderObject() as RenderBox;
     final Offset localPosition = renderBox.localToGlobal(Offset.zero);
     final Size size = renderBox.size;
@@ -395,7 +398,9 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
             height: 48.0,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: isSelected ? const Color(0xFF7e61f3) : null,
+              color: isSelected 
+                  ? theme.primaryColor
+                  : (isDarkMode ? Colors.grey[800] : Colors.white),
               borderRadius: BorderRadius.zero,
             ),
             alignment: Alignment.centerLeft,
@@ -404,14 +409,20 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
               style: TextStyle(
                 color: isSelected
                     ? Colors.white
-                    : Theme.of(context).textTheme.bodyMedium?.color,
+                    : (isDarkMode ? Colors.white : Colors.black87),
               ),
             ),
           ),
         );
       }).toList(),
       initialValue: selectedValue,
-      color: Colors.white,
+      color: isDarkMode ? Colors.grey[800] : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: isDarkMode 
+            ? BorderSide(color: Colors.grey[700]!)
+            : BorderSide(color: Colors.grey[300]!),
+      ),
     );
 
     if (selectedItem != null) {
@@ -458,6 +469,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
+    final theme = Theme.of(context);
     return AppBar(
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_ios, size: 24),
@@ -482,12 +494,14 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
         if (widget.task != null && _viewMode == _TaskViewMode.edit)
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
+            color: theme.scaffoldBackgroundColor,
             onSelected: (value) async {
               if (value == 'delete') {
                 final confirmed = await showDialog<bool>(
                   context: context,
                   builder: (context) => AlertDialog(
                     title: const Text('Удалить задачу?'),
+                    backgroundColor: theme.scaffoldBackgroundColor,
                     content: const Text('Эта задача будет безвозвратно удалена.'),
                     actions: [
                       TextButton(
@@ -522,6 +536,12 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                 ),
               ),
             ],
+            // offset сдвигает меню вниз и влево
+            offset: const Offset(-10, 40), // x: -10 (чуть левее), y: 40 (вниз от AppBar)
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
       ],
     );
@@ -596,6 +616,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
             // Приоритет
             _buildDropdownField(
               label: 'Приоритет',
+              labelStyle: theme.textTheme.bodyMedium,
               displayText: _getDisplayText(task.priority ?? 'medium'),
               key: _priorityKey,
               isActive: false,
@@ -608,6 +629,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
             // Категория
             _buildDropdownField(
               label: 'Категория',
+              labelStyle: theme.textTheme.bodyMedium,
               displayText: _getDisplayText(task.category ?? 'работа'),
               key: _categoryKey,
               isActive: false,
@@ -1114,7 +1136,8 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     required GlobalKey key,
     required bool isActive,
     required VoidCallback onTap,
-    required ThemeData theme,
+    required ThemeData theme, 
+    TextStyle? labelStyle,
   }) {
     final theme = Theme.of(context);
     return Column(
@@ -1157,7 +1180,8 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     final Size size = renderBox.size;
     final Offset localPosition = renderBox.localToGlobal(Offset.zero);
     final Offset menuPosition = Offset(localPosition.dx, localPosition.dy + size.height);
-
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
     final selectedId = await showMenu<String?>(
       context: context,
       position: RelativeRect.fromLTRB(
@@ -1190,7 +1214,13 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
         );
       }).toList(),
       initialValue: _groupId, // <-- важно: чтобы подсветить текущее значение
-      color: Colors.white,
+      color: isDarkMode ? Colors.grey[800] : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: isDarkMode 
+            ? BorderSide(color: Colors.grey[700]!)
+            : BorderSide(color: Colors.grey[300]!),
+      ),
     );
 
     if (selectedId != _groupId) {

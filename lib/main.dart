@@ -19,6 +19,7 @@ import 'services/auth_service.dart';
 import 'services/database_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'themes/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -92,164 +93,8 @@ class MyApp extends StatelessWidget {
         Locale('en', 'US'),
       ],
       locale: const Locale('ru'),
-      theme: ThemeData(
-        brightness: Brightness.light,
-        primaryColor: const Color(0xFF7e61f3),
-        scaffoldBackgroundColor: const Color(0xFFeef4ff),
-        textTheme: TextTheme(
-          bodyMedium: GoogleFonts.poppins(
-            fontSize: 16,
-            color: const Color(0xFF000000),
-            fontWeight: FontWeight.normal,
-          ),
-          headlineSmall: GoogleFonts.poppins(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: const Color(0xFF000000),
-          ),
-          headlineMedium: GoogleFonts.poppins( 
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: const Color(0xFF000000),
-          ),
-          headlineLarge: GoogleFonts.poppins(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: const Color(0xFF7e61f3),
-          ),
-          bodySmall: GoogleFonts.poppins(
-            fontSize: 14,
-            color: Colors.black54,
-            fontWeight: FontWeight.normal,
-          ),
-        ),
-        appBarTheme: AppBarTheme(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          titleTextStyle: GoogleFonts.poppins(
-            fontSize: 30,
-            fontWeight: FontWeight.bold,
-            color: const Color(0xFF7e61f3),
-          ),
-          centerTitle: true,
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF7e61f3),
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: const EdgeInsets.symmetric(vertical: 16),
-          ).copyWith(
-            textStyle: MaterialStateProperty.all(
-              GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ),
-        dialogTheme: DialogThemeData(
-          backgroundColor: const Color(0xFFeef4ff),
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
-          ),
-        ),
-        popupMenuTheme: PopupMenuThemeData(
-          color: const Color(0xFFeef4ff),
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
-          ),
-          textStyle: GoogleFonts.poppins(
-            fontSize: 16,
-            color: const Color(0xFF000000),
-            fontWeight: FontWeight.normal,
-          ),
-          elevation: 8,
-        ),
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        brightness: Brightness.dark,
-        primaryColor: const Color(0xFF7e61f3),
-        scaffoldBackgroundColor: const Color(0xFF1C2526),
-        textTheme: TextTheme(
-          bodyMedium: GoogleFonts.poppins(
-            fontSize: 16,
-            color: const Color(0xFFFFFFFF),
-            fontWeight: FontWeight.normal,
-          ),
-          headlineSmall: GoogleFonts.poppins(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: const Color(0xFF000000),
-          ),
-          headlineMedium: GoogleFonts.poppins( 
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: const Color(0xFF000000),
-          ),
-          headlineLarge: GoogleFonts.poppins(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: const Color(0xFF7e61f3),
-          ),
-          bodySmall: GoogleFonts.poppins(
-            fontSize: 14,
-            color: Colors.white70,
-            fontWeight: FontWeight.normal,
-          ),
-        ),
-        appBarTheme: AppBarTheme(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          titleTextStyle: GoogleFonts.poppins(
-            fontSize: 30,
-            fontWeight: FontWeight.bold,
-            color: const Color(0xFF7e61f3),
-          ),
-          centerTitle: true,
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF7e61f3),
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: const EdgeInsets.symmetric(vertical: 16),
-          ).copyWith(
-            textStyle: MaterialStateProperty.all(
-              GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ),
-        dialogTheme: DialogThemeData(
-          backgroundColor: const Color(0xFF1C2526),
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
-          ),
-        ),
-        popupMenuTheme: PopupMenuThemeData(
-          color: const Color(0xFF1C2526),
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
-          ),
-          textStyle: GoogleFonts.poppins(
-            fontSize: 16,
-            color: const Color(0xFF000000),
-            fontWeight: FontWeight.normal,
-          ),
-          elevation: 8,
-        ),
-        useMaterial3: true,
-      ),
+      theme: lightTheme,
+      darkTheme: darkTheme,
       themeMode: ThemeMode.system,
       home: FutureBuilder<Widget>(
         future: _getInitialScreen(),
@@ -474,85 +319,104 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
     _createMenuController.reset();
 
     _overlayEntry = OverlayEntry(
-      builder: (context) => Stack(
-        children: [
-          // Фон — закрывает всё и закрывает меню при тапе
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: _hideCreateMenu,
-              child: AnimatedBuilder(
-                animation: _createMenuFade,
-                builder: (context, child) => Container(
-                  color: Colors.transparent,
+      builder: (context) {
+        final theme = Theme.of(context);
+      final isDarkMode = theme.brightness == Brightness.dark;
+      
+      // Определяем цвета как в навигации
+      final activeColor = theme.primaryColor;
+      final inactiveColor = isDarkMode ? Colors.grey[500]! : Colors.grey[400];
+        
+        return Stack(
+          children: [
+            // Фон — закрывает всё и закрывает меню при тапе
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: _hideCreateMenu,
+                child: AnimatedBuilder(
+                  animation: _createMenuFade,
+                  builder: (context, child) => Container(
+                    color: Colors.transparent,
+                  ),
                 ),
+                behavior: HitTestBehavior.translucent,
               ),
-              behavior: HitTestBehavior.translucent,
             ),
-          ),
-          // Анимированное меню
-          AnimatedBuilder(
-            animation: _createMenuController,
-            builder: (context, child) => Positioned(
-              left: left,
-              top: buttonPosition.dy - 70.0 - 10 - _createMenuSlide.value,
-              child: Opacity(
-                opacity: _createMenuFade.value,
-                child: Material(
-                  elevation: 8,
-                  color: Colors.transparent,
-                  child: PhysicalShape(
-                    clipper: MenuClipper(),
-                    color: Theme.of(context).popupMenuTheme.color ?? Theme.of(context).scaffoldBackgroundColor,
-                    shadowColor: Colors.black.withOpacity(0.2),
+            // Анимированное меню
+            AnimatedBuilder(
+              animation: _createMenuController,
+              builder: (context, child) => Positioned(
+                left: left,
+                top: buttonPosition.dy - 70.0 - 10 - _createMenuSlide.value,
+                child: Opacity(
+                  opacity: _createMenuFade.value,
+                  child: Material(
                     elevation: 8,
-                    child: ClipPath(
+                    color: Colors.transparent,
+                    child: PhysicalShape(
                       clipper: MenuClipper(),
-                      child: Container(
-                        height: menuHeight,
-                        width: menuWidth,
-                        color: const Color(0xFFF8F9FA),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: _createOptions.asMap().entries.map((entry) {
-                            final index = entry.key;
-                            final option = entry.value;
-                            return GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTapDown: (_) {
-                                setState(() {
-                                  _isButtonPressed[index] = true;
-                                });
-                              },
-                              onTapUp: (_) {
-                                _hideCreateMenu();
-                                setState(() {
-                                  _isButtonPressed[index] = false;
-                                });
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (context) => option['screen']),
-                                );
-                              },
-                              onTapCancel: () {
-                                setState(() {
-                                  _isButtonPressed[index] = false;
-                                });
-                              },
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 150),
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: _isButtonPressed[index] ? const Color(0x337e61f3) : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(12),
+                      color: isDarkMode 
+                          ? (theme.popupMenuTheme.color ?? Colors.grey[800]!)
+                          : (theme.popupMenuTheme.color ?? const Color(0xFFF8F9FA)),
+                      shadowColor: isDarkMode 
+                          ? Colors.black.withOpacity(0.4)
+                          : Colors.black.withOpacity(0.2),
+                      elevation: 8,
+                      child: ClipPath(
+                        clipper: MenuClipper(),
+                        child: Container(
+                          height: menuHeight,
+                          width: menuWidth,
+                          color: isDarkMode ? Colors.grey[800] : const Color(0xFFF8F9FA),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: _createOptions.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final option = entry.value;
+                              return GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTapDown: (_) {
+                                  setState(() {
+                                    _isButtonPressed[index] = true;
+                                  });
+                                },
+                                onTapUp: (_) {
+                                  _hideCreateMenu();
+                                  setState(() {
+                                    _isButtonPressed[index] = false;
+                                  });
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (context) => option['screen']),
+                                  );
+                                },
+                                onTapCancel: () {
+                                  setState(() {
+                                    _isButtonPressed[index] = false;
+                                  });
+                                },
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 150),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: _isButtonPressed[index] 
+                                        ? (isDarkMode 
+                                            ? const Color(0x445F7DFF) 
+                                            : const Color(0x337e61f3))
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Icon(
+                                    option['icon'],
+                                    color: _isButtonPressed[index] 
+                                      ? theme.primaryColor
+                                      : inactiveColor,
+                                    size: 30,
+                                  ),
                                 ),
-                                child: Icon(
-                                  option['icon'],
-                                  color: _isButtonPressed[index] ? const Color(0xFF7e61f3) : Colors.grey[400],
-                                  size: 30,
-                                ),
-                              ),
-                            );
-                          }).toList(),
+                              );
+                            }).toList(),
+                          ),
                         ),
                       ),
                     ),
@@ -560,9 +424,9 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
                 ),
               ),
             ),
-          ),
-        ],
-      ),
+          ],
+        );
+      },
     );
 
     Overlay.of(context)?.insert(_overlayEntry!);
@@ -657,65 +521,78 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
     });
 
     _moreOverlayEntry = OverlayEntry(
-      builder: (context) => Stack(
-        children: [
-          GestureDetector(
-            onTap: _hideMoreMenu,
-            child: Container(color: Colors.transparent),
-          ),
-          Positioned(
-            left: left,
-            top: initialTop,
-            child: ScaleTransition(
-              scale: Tween<double>(begin: 0.7, end: 1.0).animate(
-                CurvedAnimation(
-                  parent: _moreMenuController,
-                  curve: Curves.easeOutBack, // Плавное появление с "подпрыгиванием"
-                ),
-              ),
-              child: FadeTransition(
-                opacity: Tween<double>(begin: 0.0, end: 1.0).animate(
+      builder: (context) {
+        final theme = Theme.of(context);
+        final isDarkMode = theme.brightness == Brightness.dark;
+        
+        return Stack(
+          children: [
+            GestureDetector(
+              onTap: _hideMoreMenu,
+              child: Container(color: Colors.transparent),
+            ),
+            Positioned(
+              left: left,
+              top: initialTop,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.7, end: 1.0).animate(
                   CurvedAnimation(
                     parent: _moreMenuController,
-                    curve: Curves.easeOut,
+                    curve: Curves.easeOutBack,
                   ),
                 ),
-                child: Material(
-                  elevation: 8,
-                  borderRadius: BorderRadius.circular(12),
-                  color: const Color(0xFFF8F9FA),
-                  child: Container(
-                    width: menuWidth,
-                    padding: const EdgeInsets.all(8.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: _moreScreens.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final screen = entry.value;
-                        return ListTile(
-                          leading: Icon(screen['icon'], color: const Color(0xFF7e61f3)),
-                          title: Text(
-                            screen['title'],
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                          onTap: () {
-                            _hideMoreMenu();
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => screen['screen']),
-                            );
-                          },
-                        );
-                      }).toList(),
+                child: FadeTransition(
+                  opacity: Tween<double>(begin: 0.0, end: 1.0).animate(
+                    CurvedAnimation(
+                      parent: _moreMenuController,
+                      curve: Curves.easeOut,
+                    ),
+                  ),
+                  child: Material(
+                    elevation: 8,
+                    borderRadius: BorderRadius.circular(12),
+                    color: isDarkMode 
+                        ? Colors.grey[800]!
+                        : const Color(0xFFF8F9FA),
+                    child: Container(
+                      width: menuWidth,
+                      padding: const EdgeInsets.all(8.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: _moreScreens.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final screen = entry.value;
+                          return ListTile(
+                            leading: Icon(
+                              screen['icon'], 
+                              color: theme.primaryColor
+                            ),
+                            title: Text(
+                              screen['title'],
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: isDarkMode ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                            onTap: () {
+                              _hideMoreMenu();
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => screen['screen']),
+                              );
+                            },
+                          );
+                        }).toList(),
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
-      ),
+          ],
+        );
+      },
     );
+
 
     Overlay.of(context).insert(_moreOverlayEntry!);
     _moreMenuController.reset();
@@ -741,6 +618,17 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+
+    // Цвета для навигации в зависимости от темы
+    final activeColor = theme.primaryColor;
+    final inactiveColor = isDarkMode ? Colors.grey[500]! : const Color(0xFFB0BEC5);
+    final navBarBgColor = theme.scaffoldBackgroundColor;
+    final shadowColor = isDarkMode 
+        ? Colors.white.withOpacity(0.04) 
+        : Colors.black.withOpacity(0.04);
+    final fabColor = const Color(0xFFf37e61); // Цвет FAB остается фиксированным
+
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
@@ -771,10 +659,10 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
               curve: Curves.easeInOut,
               child: FloatingActionButton(
                 onPressed: null,
-                backgroundColor: const Color(0xFFf37e61),
+                backgroundColor: fabColor,
                 foregroundColor: Colors.white,
                 shape: const CircleBorder(),
-                elevation: 2.0,
+                elevation: isDarkMode ? 4.0 : 2.0,
                 child: const Icon(Icons.add, size: 30),
               ),
             ),
@@ -785,33 +673,25 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
           decoration: BoxDecoration(
             boxShadow: [
               BoxShadow(
-                color: theme.brightness == Brightness.light
-                    ? Colors.black.withOpacity(0.04)
-                    : Colors.white.withOpacity(0.04),
+                color: shadowColor,
                 offset: const Offset(0, 0),
                 blurRadius: 20,
                 spreadRadius: 0,
               ),
               BoxShadow(
-                color: theme.brightness == Brightness.light
-                    ? Colors.black.withOpacity(0.04)
-                    : Colors.white.withOpacity(0.04),
+                color: shadowColor,
                 offset: const Offset(-1, -1),
                 blurRadius: 25,
                 spreadRadius: 0,
               ),
               BoxShadow(
-                color: theme.brightness == Brightness.light
-                    ? Colors.black.withOpacity(0.04)
-                    : Colors.white.withOpacity(0.04),
+                color: shadowColor,
                 offset: const Offset(2, -2),
                 blurRadius: 25,
                 spreadRadius: 0,
               ),
               BoxShadow(
-                color: theme.brightness == Brightness.light
-                    ? Colors.black.withOpacity(0.02)
-                    : Colors.white.withOpacity(0.02),
+                color: shadowColor,
                 offset: const Offset(0, -3),
                 blurRadius: 40,
                 spreadRadius: 0,
@@ -822,6 +702,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
             clipper: NavBarClipper(),
             child: BottomAppBar(
               color: theme.scaffoldBackgroundColor,
+              surfaceTintColor: isDarkMode ? Colors.grey[800] : Colors.white,
               shape: const CircularNotchedRectangle(),
               notchMargin: 8.0,
               child: Row(
@@ -830,18 +711,14 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
                   IconButton(
                     icon: Icon(
                       Icons.home,
-                      color: _selectedIndex == 0
-                          ? const Color(0xFF7e61f3)
-                          : const Color(0xFFB0BEC5),
+                      color: _selectedIndex == 0 ? activeColor : inactiveColor,
                     ),
                     onPressed: () => _onItemTapped(0),
                   ),
                   IconButton(
                     icon: Icon(
                       Icons.checklist,
-                      color: _selectedIndex == 1
-                          ? const Color(0xFF7e61f3)
-                          : const Color(0xFFB0BEC5),
+                      color: _selectedIndex == 1 ? activeColor : inactiveColor,
                     ),
                     onPressed: () => _onItemTapped(1),
                   ),
@@ -849,9 +726,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
                   IconButton(
                     icon: Icon(
                       Icons.groups,
-                      color: _selectedIndex == 2
-                          ? const Color(0xFF7e61f3)
-                          : const Color(0xFFB0BEC5),
+                      color: _selectedIndex == 2 ? activeColor : inactiveColor,
                     ),
                     onPressed: () => _onItemTapped(2),
                   ),
@@ -860,9 +735,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
                     IconButton(
                       icon: Icon(
                         Icons.more_horiz,
-                        color: _selectedIndex == 3 
-                            ? const Color(0xFF7e61f3) 
-                            : const Color(0xFFB0BEC5),
+                        color: _selectedIndex == 3 ? activeColor : inactiveColor,
                       ),
                       onPressed: () {
                         if (_isAnimating) return;

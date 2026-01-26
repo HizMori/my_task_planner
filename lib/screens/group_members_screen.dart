@@ -246,17 +246,19 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
                               final user = _members[index];
                               final isCreator = user.id == widget.group.creatorId;
                               final isMe = user.id == _currentUserId;
+                              final isDarkMode = theme.brightness == Brightness.dark;
+                              final cardColor = isDarkMode ? Colors.grey[800] : Colors.white;
 
                               return Card(
+                                color: cardColor,
                                 margin: const EdgeInsets.only(bottom: 8),
-                                elevation: 2,
+                                elevation: isDarkMode ? 2 : 1,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(14),
                                   side: BorderSide(
                                     color: Colors.grey.withOpacity(0.1),
                                   ),
                                 ),
-                                color: const Color(0xFFf8f5ff),
                                 child: ListTile(
                                   contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 16,
@@ -268,7 +270,6 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
                                     style: isCreator
                                         ? theme.textTheme.bodyMedium?.copyWith(
                                             fontWeight: FontWeight.bold,
-                                            color: const Color.fromARGB(255, 0, 0, 0),
                                           )
                                         : null,
                                   ),

@@ -131,11 +131,15 @@ class _GroupListScreenState extends State<GroupListScreen> {
                         itemCount: _groups.length,
                         itemBuilder: (context, index) {
                           final group = _groups[index];
+                          final isDarkMode = theme.brightness == Brightness.dark;
+                          final cardColor = isDarkMode ? Colors.grey[800] : Colors.white;
                           return Card(
+                            color: cardColor,
                             margin: const EdgeInsets.only(bottom: 12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
                             ),
+                            elevation: isDarkMode ? 2 : 1,
                             child: ListTile(
                               leading: Container(
                                 width: 48,

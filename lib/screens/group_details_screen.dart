@@ -34,10 +34,12 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen>
   }
 
   Future<void> _deleteGroup() async {
+    final theme = Theme.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Удалить группу?'),
+        backgroundColor: theme.scaffoldBackgroundColor,
         content: const Text(
           'Все задачи, сообщения и участники этой группы будут безвозвратно удалены.',
         ),
@@ -96,7 +98,6 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(

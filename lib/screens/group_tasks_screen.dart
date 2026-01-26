@@ -254,6 +254,8 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             itemCount: _tasks.length,
                             itemBuilder: (context, index) {
+                              final isDarkMode = theme.brightness == Brightness.dark;
+                              final cardColor = isDarkMode ? Colors.grey[800] : Colors.white;
                               final task = _tasks[index];
                               return Dismissible(
                                 key: Key('task-${task.id}'),
@@ -270,10 +272,12 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
                                 ),
                                 onDismissed: (direction) => _deleteTask(task),
                                 child: Card(
+                                  color: cardColor,
                                   margin: const EdgeInsets.only(bottom: 8),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
+                                  elevation: isDarkMode ? 2 : 1,
                                   child: ListTile(
                                     title: Text(
                                       task.title,
@@ -300,6 +304,7 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
                                     ),
                                     trailing: Checkbox(
                                       value: task.is_completed,
+                                      activeColor: const Color(0xFF7e61f3),
                                       onChanged: (value) => _toggleTaskCompletion(task),
                                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                     ),

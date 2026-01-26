@@ -92,6 +92,8 @@ class _ContactsScreenState extends State<ContactsScreen> {
                             itemCount: _contacts.length,
                             itemBuilder: (context, index) {
                               final user = _contacts[index];
+                              final isDarkMode = theme.brightness == Brightness.dark;
+                              final cardColor = isDarkMode ? Colors.grey[800] : Colors.white;
                               return Dismissible(
                                 key: Key(user.id),
                                 direction: DismissDirection.startToEnd,
@@ -133,10 +135,12 @@ class _ContactsScreenState extends State<ContactsScreen> {
                                   );
                                 },
                                 child: Card(
+                                  color: cardColor,
                                   margin: const EdgeInsets.only(bottom: 8),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
+                                  elevation: isDarkMode ? 2 : 1,
                                   child: ListTile(
                                     leading: UserAvatar(user: user, radius: 20),
                                     title: Text(user.name),

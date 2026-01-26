@@ -98,6 +98,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+
+    final weekdayStyle = isDarkMode ? Colors.white : Colors.black;
 
     return Scaffold(
       appBar: AppBar(
@@ -150,7 +153,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               weekdayStyle: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: Colors.black87,
+                color: weekdayStyle,
               ),
               weekendStyle: TextStyle(
                 fontSize: 14,
@@ -225,6 +228,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Widget _buildTaskList() {
     final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
     final tasks = _getEventsForDay(_selectedDay!);
     final now = DateTime.now();
 
@@ -237,6 +241,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
       );
     }
 
+    // Динамичные цвета, как в home_screen
+    final cardColor = isDarkMode ? Colors.grey[800] : Colors.white;
+    final timeColor = isDarkMode ? Colors.grey[300] : Colors.grey[700];
+
     return ListView.builder(
       itemCount: tasks.length,
       itemBuilder: (context, index) {
@@ -245,6 +253,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         final isOverdue = !task.is_completed && deadline.isBefore(now);
 
         return Card(
+          color: cardColor,
           margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -297,7 +306,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           '${deadline.hour.toString().padLeft(2, '0')}:${deadline.minute.toString().padLeft(2, '0')}',
                           style: TextStyle(
                             fontSize: 12,
-                            color: isOverdue ? Colors.red[500] : null,
+                            color: isOverdue ? Colors.red[500] : timeColor,
                           ),
                         ),
                         const SizedBox(width: 12),

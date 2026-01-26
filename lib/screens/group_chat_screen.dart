@@ -459,7 +459,24 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+
+    // Цвета в зависимости от темы (как в signup_screen.dart)
+    final hintColor = isDarkMode ? Colors.grey[400] : Colors.grey;
+    final fieldFillColor = isDarkMode ? Colors.grey[800] : Colors.white;
+    final dividerColor = isDarkMode ? Colors.grey[700] : const Color.fromARGB(84, 158, 158, 158);
+    final dateLabelColor = isDarkMode ? Colors.grey[700]! : Colors.white;
+    final dateTextColor = isDarkMode ? Colors.white : Colors.black;
+    final otherMessageBg = isDarkMode ? Colors.grey[800]! : Colors.white;
+    final otherMessageText = isDarkMode ? Colors.white : Colors.black87;
+    final myMessageBg = const Color(0xFF7e61f3); // Основной цвет приложения
+    final timeTextColorMy = isDarkMode ? Colors.white : Colors.white;
+    final timeTextColorOther = isDarkMode ? Colors.white : Colors.black;
+    final snackBarBackground = isDarkMode ? Colors.grey[800] : Colors.white;
+
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: Column(
         children: [
           // Список сообщений
@@ -467,8 +484,13 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _messages.isEmpty
-                    ? const Center(
-                        child: Text('Ещё нет сообщений'),
+                    ?Center(
+                        child: Text(
+                          'Ещё нет сообщений',
+                          style: TextStyle(
+                            color: hintColor,
+                          ),
+                        ),
                       )
                     : ListView.builder(
                         controller: _scrollController,
@@ -496,8 +518,17 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                           return Column(
                             children: [
                               if (showDate)
-                                _buildDateLabel(message.sentAt),
-                              _buildMessageBubble(message, isMe),
+                                _buildDateLabel(message.sentAt, dateLabelColor, dateTextColor),
+                              _buildMessageBubble(
+                                message, 
+                                isMe, 
+                                isDarkMode, 
+                                myMessageBg, 
+                                otherMessageBg, 
+                                otherMessageText,
+                                timeTextColorMy,
+                                timeTextColorOther,
+                              ),
                             ],
                           );
                         },
@@ -507,10 +538,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: Theme.of(context).scaffoldBackgroundColor,
+              color: theme.scaffoldBackgroundColor,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
+                  color: Colors.grey.withOpacity(isDarkMode ? 0.2 : 0.1),
                   blurRadius: 10,
                   offset: const Offset(0, -2),
                 ),
@@ -522,23 +553,33 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                 if (_lastTextValue != null)
                   FloatingActionButton(
                     onPressed: _undoLastEmoji,
-                    backgroundColor: Colors.grey[500],
+                    backgroundColor: isDarkMode ? Colors.grey[700] : Colors.grey[500],
                     mini: true,
-                    child: const Icon(Icons.undo, color: Colors.white, size: 18),
+                    child: Icon(
+                      Icons.undo, 
+                      color: isDarkMode ? Colors.grey[300] : Colors.white, 
+                      size: 18
+                    ),
                   ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
                     controller: _textController,
-                    decoration: const InputDecoration(
+                    style: TextStyle(
+                      color: isDarkMode ? Colors.white : Colors.black87,
+                    ),
+                    decoration: InputDecoration(
                       hintText: 'Написать сообщение...',
+                      hintStyle: TextStyle(
+                        color: hintColor,
+                      ),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(30)),
+                        borderRadius: const BorderRadius.all(Radius.circular(30)),
                         borderSide: BorderSide.none,
                       ),
                       filled: true,
-                      fillColor: Color(0xFFf2f2f7),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      fillColor: fieldFillColor,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     ),
                     onSubmitted: (value) => _sendMessage(),
                     onChanged: (text) {
@@ -550,7 +591,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                 const SizedBox(width: 8),
                 FloatingActionButton(
                   onPressed: _sendMessage,
-                  backgroundColor: _isEditing ? Colors.green : Theme.of(context).primaryColor,
+                  backgroundColor: _isEditing ? Colors.green : myMessageBg,
                   mini: true,
                   child: Icon(
                     _isEditing ? Icons.check : Icons.send,
@@ -616,7 +657,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
     }
   }
 
-  Widget _buildDateLabel(DateTime date) {
+  Widget _buildDateLabel(DateTime date, Color bgColor, Color textColor) {
     String label;
     final now = DateTime.now();
     final messageDay = DateTime(date.year, date.month, date.day);
@@ -636,14 +677,14 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
-          color: Colors.grey[300],
+          color: bgColor,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 12,
-            color: Colors.black87,
+            color: textColor,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -651,7 +692,16 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
     );
   }
 
-  Widget _buildMessageBubble(Message message, bool isMe) {
+  Widget _buildMessageBubble(
+    Message message, 
+    bool isMe, 
+    bool isDarkMode, 
+    Color myMessageBg, 
+    Color otherMessageBg, 
+    Color otherMessageText,
+    Color timeTextColorMy,
+    Color timeTextColorOther,
+  ) {
     final contentKey = _messageContentKeys[message.id] ??= GlobalKey();
     final String senderName = isMe ? 'Вы' : message.senderName ?? 'Пользователь';
     final String timeText = _formatTime(message.sentAt);
@@ -667,7 +717,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
           print('❌ Overlay не найден! Контекст не подключён к Overlay.');
         } else {
           print('✅ Overlay найден! Можно вставлять меню.');
-          _showMessageMenu(context, message, contentKey); // Только если Overlay есть
+          _showMessageMenu(context, message, contentKey, isDarkMode); // Только если Overlay есть
         }
       },
       child: Padding(
@@ -687,7 +737,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
               stepWidth: 10.0,
               child: Container(
                 decoration: BoxDecoration(
-                  color: isMe ? Theme.of(context).primaryColor : Colors.grey[300],
+                  color: isMe ? myMessageBg : otherMessageBg,
                   borderRadius: BorderRadius.only(
                     topLeft: const Radius.circular(18),
                     topRight: const Radius.circular(18),
@@ -705,10 +755,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                         padding: const EdgeInsets.only(left: 12, top: 8, right: 12),
                         child: Text(
                           senderName,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
-                            color: Colors.white70,
+                            color: isMe ? Colors.white70 : (isDarkMode ? Colors.white : Colors.black),
                           ),
                         ),
                       ),
@@ -717,7 +767,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                       child: Text(
                         message.content,
                         style: TextStyle(
-                          color: isMe ? Colors.white : Colors.black87,
+                          color: isMe ? Colors.white : otherMessageText,
                           fontSize: 16,
                         ),
                         softWrap: true,
@@ -730,11 +780,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           if (message.isEdited)
-                            const Text(
+                            Text(
                               'изменено • ',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Colors.white70,
+                                color: isMe ? timeTextColorMy : timeTextColorOther,
                               ),
                             )
                           else
@@ -743,7 +793,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                             _formatTime(message.sentAt),
                             style: TextStyle(
                               fontSize: 11,
-                              color: isMe ? Colors.white70 : Colors.black54,
+                              color: isMe ? timeTextColorMy : timeTextColorOther,
                             ),
                           ),
                         ],
@@ -759,7 +809,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
     );
   }
 
-  void _showMessageMenu(BuildContext context, Message message, GlobalKey contentKey) {
+  void _showMessageMenu(BuildContext context, Message message, GlobalKey contentKey, bool isDarkMode) {
     if (_messageMenuEntry != null) return;
 
     if (contentKey.currentContext == null) {
@@ -860,17 +910,23 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                   child: Material(
                     elevation: 8,
                     borderRadius: BorderRadius.circular(12),
-                    color: const Color(0xFFF8F9FA),
+                    color: isDarkMode ? Colors.grey[800] : Colors.white,
                     child: IntrinsicWidth(
                       child: ConstrainedBox(
                         constraints: BoxConstraints(maxWidth: maxMenuWidth),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            if (canBeEdited)
+                             if (canBeEdited)
                               ListTile(
-                                leading: const Icon(Icons.edit, size: 18, color: Colors.blue),
-                                title: const Text("Изменить", style: TextStyle(fontSize: 14)),
+                                leading: Icon(Icons.edit, size: 18, color: isDarkMode ? Colors.blue[300] : Colors.blue),
+                                title: Text(
+                                  "Изменить", 
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: isDarkMode ? Colors.white : Colors.black87,
+                                  ),
+                                ),
                                 onTap: () {
                                   _hideMessageMenu();
                                   _startEditing(message);
@@ -878,11 +934,17 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                               ),
                             if (canBeDeleted)
                               ListTile(
-                                leading: const Icon(Icons.delete, size: 18, color: Colors.red),
-                                title: const Text("Удалить", style: TextStyle(fontSize: 14)),
+                                leading: Icon(Icons.delete, size: 18, color: isDarkMode ? Colors.red[300] : Colors.red),
+                                title: Text(
+                                  "Удалить", 
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: isDarkMode ? Colors.white : Colors.black87,
+                                  ),
+                                ),
                                 onTap: () {
                                   _hideMessageMenu();
-                                  _confirmDelete(message);
+                                  _confirmDelete(message, isDarkMode);
                                 },
                               ),
                           ],
@@ -912,20 +974,41 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
     });
   }
 
-  Future<void> _confirmDelete(Message message) async {
+  Future<void> _confirmDelete(Message message, bool isDarkMode) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Удалить сообщение?"),
-        content: const Text("Это сообщение будет удалено безвозвратно."),
+        backgroundColor: isDarkMode ? Colors.grey[800] : Colors.white,
+        title: Text(
+          "Удалить сообщение?",
+          style: TextStyle(
+            color: isDarkMode ? Colors.white : Colors.black87,
+          ),
+        ),
+        content: Text(
+          "Это сообщение будет удалено безвозвратно.",
+          style: TextStyle(
+            color: isDarkMode ? Colors.white70 : Colors.black54,
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text("Отмена"),
+            child: Text(
+              "Отмена",
+              style: TextStyle(
+                color: isDarkMode ? Colors.blue[300] : Colors.blue,
+              ),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text("Удалить", style: TextStyle(color: Colors.red)),
+            child: Text(
+              "Удалить", 
+              style: TextStyle(
+                color: isDarkMode ? Colors.red[300] : Colors.red,
+              ),
+            ),
           ),
         ],
       ),

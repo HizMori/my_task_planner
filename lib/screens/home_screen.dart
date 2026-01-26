@@ -6,7 +6,7 @@ import '../services/auth_service.dart';
 import '../widgets/online_status_icon.dart';
 import 'create_task_screen.dart';
 import '../models/task_assignee.dart';
-import '../models/task_assignee.dart';
+import '../themes/app_theme.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -147,6 +147,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ..sort((a, b) => a.deadline!.compareTo(b.deadline!));
 
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Главное'),
         actions: const [
@@ -239,6 +240,15 @@ class _HomeScreenState extends State<HomeScreen> {
       final deadline = task.deadline!;
       bool showDateHeader = true;
 
+      final isDarkMode = theme.brightness == Brightness.dark;
+
+      // Динамичные цвета, вдохновлённые signup_screen.dart
+      final cardColor = isDarkMode ? Colors.grey[800] : Colors.white; // Фон карточки, как fieldFillColor в signup
+      final dateHeaderColor = isDarkMode ? Colors.grey[400] : Colors.grey[700]; // Цвет заголовка даты, как hintColor
+      final timeColor = isDarkMode ? Colors.grey[300] : Colors.grey[700]; // Цвет времени, аналогично
+      final subtitleIconColor = const Color(0xFF7e61f3); // Оставляем фиксированный, но можно динамизировать если нужно
+      final overdueColor = Colors.red; // Фиксированный для просроченного
+
       if (index > 0) {
         final prevDeadline = tasks[index - 1].deadline!;
         showDateHeader = prevDeadline.day != deadline.day ||
@@ -256,15 +266,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 _formatDateHeader(deadline),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: Colors.grey[700],
+                  color: dateHeaderColor
                 ),
               ),
             ),
           Card(
+            color: cardColor,
             margin: const EdgeInsets.only(bottom: 8),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
+            elevation: isDarkMode ? 2 : 1,
             child: ListTile(
               leading: Container(
                 width: 40,
@@ -297,35 +309,39 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       Text(
                         _formatTime(deadline),
-                        style: const TextStyle(fontSize: 12),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: timeColor,
+                          ),
                       ),
                       const SizedBox(width: 12),
                       _buildLabel(
                         _getCategoryText(task.category),
-                        const Color(0xFF7e61f3),
+                        subtitleIconColor,
                       ),
                     ],
                   ),
                   if (task.id != null && _taskAssigneesCache[task.id]?.contains(userId) == true)
                     Row(
                       children: [
-                        Icon(Icons.person, size: 12, color: const Color(0xFF7e61f3)),
+                        Icon(Icons.person, size: 12, color: subtitleIconColor),
                         const SizedBox(width: 4),
-                        Text('Назначено вам', style: TextStyle(fontSize: 10, color: const Color(0xFF7e61f3))),
+                        Text('Назначено вам', style: TextStyle(fontSize: 10, color: subtitleIconColor)),
                       ],
                     ),
                   if (task.deadline!.isBefore(DateTime.now()))
                     Row(
                       children: [
-                        Icon(Icons.warning_amber, size: 12, color: Colors.red),
+                        Icon(Icons.warning_amber, size: 12, color: overdueColor),
                         const SizedBox(width: 4),
-                        Text('Просрочено', style: TextStyle(fontSize: 10, color: Colors.red)),
+                        Text('Просрочено', style: TextStyle(fontSize: 10, color: overdueColor)),
                       ],
                     ),
                 ],
               ),
               trailing: Checkbox(
                 value: task.is_completed,
+                activeColor: const Color(0xFF7e61f3),
                 onChanged: (value) async {
                   if (value == null) return;
 

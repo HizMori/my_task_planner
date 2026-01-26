@@ -170,10 +170,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _showDeleteAccountDialog() async {
+    final theme = Theme.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Удалить аккаунт?'),
+        backgroundColor: theme.scaffoldBackgroundColor,
         content: const Text(
           'Это действие нельзя отменить. Все ваши данные будут удалены.',
         ),
@@ -259,9 +261,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ],
+            // offset сдвигает меню вниз и влево
+            offset: const Offset(-10, 40), // x: -10 (чуть левее), y: 40 (вниз от AppBar)
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
             icon: Icon(Icons.more_vert),
-            color: Theme.of(context).scaffoldBackgroundColor,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            color: theme.scaffoldBackgroundColor,
           ),
           SizedBox(width: 8),
         ],
