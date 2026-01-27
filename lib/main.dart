@@ -20,6 +20,8 @@ import 'services/database_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'themes/app_theme.dart';
+import 'themes/theme_provider.dart';
+import 'package:provider/provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,7 +31,12 @@ Future<void> main() async {
     anonKey: 'sb_publishable_nzc7YWw8V8N6HwDdzQhI6g_o2sjALYS',
   );
 
-  runApp(const MyApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ThemeProvider(),
+      child: const MyApp(),
+    ),
+  );
 }
 
 final supabase = Supabase.instance.client;
@@ -79,39 +86,65 @@ class MyApp extends StatelessWidget {
     return const WelcomeScreen();
   }
 
+  Future<ThemeMode> _loadThemeMode() async {
+  final prefs = await SharedPreferences.getInstance();
+  final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+
+  if (!isLoggedIn) return ThemeMode.system;
+
+  final userId = await AuthService.instance.getCurrentUserId();
+  if (userId == null) return ThemeMode.system;
+
+  final settings = await DatabaseService.instance.readAppSettings(userId);
+  final theme = settings?.theme ?? 'system';
+
+  switch (theme) {
+    case 'light': return ThemeMode.light;
+    case 'dark': return ThemeMode.dark;
+    default: return ThemeMode.system;
+  }
+}
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Task Planner',
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [
-        Locale('ru', 'RU'),
-        Locale('en', 'US'),
-      ],
-      locale: const Locale('ru'),
-      theme: lightTheme,
-      darkTheme: darkTheme,
-      themeMode: ThemeMode.system,
-      home: FutureBuilder<Widget>(
-        future: _getInitialScreen(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-          if (snapshot.hasError) {
-            return const Scaffold(
-              body: Center(child: Text('Ошибка при загрузке')),
-            );
-          }
-          return snapshot.data!;
-        },
-      ),
+    return FutureBuilder<ThemeMode>(
+      future: _loadThemeMode(),
+      builder: (context, snapshot) {
+        final themeMode = snapshot.data ?? ThemeMode.system;
+
+        return MaterialApp(
+          title: 'Task Planner',
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('ru', 'RU'),
+            Locale('en', 'US'),
+          ],
+          locale: const Locale('ru'),
+          theme: lightTheme,
+          darkTheme: darkTheme,
+          themeMode: Provider.of<ThemeProvider>(context, listen: true).themeMode,
+          home: FutureBuilder<Widget>(
+            future: _getInitialScreen(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                );
+              }
+              if (snapshot.hasError) {
+                return const Scaffold(
+                  body: Center(child: Text('Ошибка при загрузке')),
+                );
+              }
+              return snapshot.data!;
+            },
+          ),
+        );
+      },
     );
   }
 }

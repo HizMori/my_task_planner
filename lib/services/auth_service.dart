@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'database_service.dart';
+import '../models/app_settings.dart';
 
 class AuthService {
   static final AuthService instance = AuthService._init();
@@ -66,23 +67,41 @@ class AuthService {
           .single();
 
       if (userResponse['deleted_at'] != null) {
-        // ✅ Помечаем, что аккаунт удалён, и выходим
+        // Помечаем, что аккаунт удалён, и выходим
         await supabase.auth.signOut();
         await deleteToken();
         await deleteCurrentUserId();
         await setLoggedIn(false);
 
-        return false; // ❌ Аккаунт удалён
+        return false; // Аккаунт удалён
       }
 
       // Синхронизируем данные
       await DatabaseService.instance.syncUserFromSupabase(userResponse);
+
+      final userId = supabaseUser.id;
+      final db = DatabaseService.instance;
+
+      // Проверяем, есть ли уже настройки
+      final existingSettings = await db.readAppSettings(userId);
+      if (existingSettings == null) {
+        final defaultSettings = AppSettings(
+          userId: userId,
+          theme: 'system',
+          notificationsEnabled: true,
+          reminderTime: 15,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        await db.createAppSettings(defaultSettings);
+      }
+
       await DatabaseService.instance.syncGroupsFromSupabase();
       await DatabaseService.instance.syncGroupMembersFromSupabase();
       await DatabaseService.instance.syncTasksFromSupabase();
       await DatabaseService.instance.syncTaskAssigneesFromSupabase();
 
-      return true; // ✅ Успешно
+      return true; // Успешно
     } catch (e) {
       print('Ошибка синхронизации пользователя: $e');
       return false;

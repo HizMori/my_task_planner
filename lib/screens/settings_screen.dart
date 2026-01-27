@@ -2,6 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:my_task_planner/main.dart';
+import 'package:my_task_planner/models/app_settings.dart';
+import 'package:my_task_planner/themes/theme_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import '../models/user.dart';
 import '../services/auth_service.dart';
@@ -9,6 +12,7 @@ import '../services/database_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'edit_profile_screen.dart';
 import 'welcome_screen.dart';
+import 'package:provider/provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -20,6 +24,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   User? _user;
   bool _isLoading = true;
+  AppSettings? _settings;
 
   @override
   void initState() {
@@ -46,12 +51,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final user = User.fromMap(userResponse);
       print('✅ Загружен аватар из Supabase: ${user.avatarUrl}');
 
-      // 🔁 Сохраним в локальную БД (опционально — для оффлайна)
+      // Сохраним в локальную БД (опционально — для оффлайна)
       await DatabaseService.instance.updateUser(user);
+
+      AppSettings? settings = await DatabaseService.instance.readAppSettings(userId);
+      if (settings == null) {
+        settings = AppSettings(
+          userId: userId,
+          theme: 'system',
+          notificationsEnabled: true,
+          reminderTime: 15,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        await DatabaseService.instance.createAppSettings(settings);
+      }
 
       if (mounted) {
         setState(() {
           _user = user;
+          _settings = settings;
           _isLoading = false;
         });
       }
@@ -62,9 +81,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final user = await DatabaseService.instance.readUserById(userId);
       print('🔽 Используем пользователя из локальной БД: ${user?.avatarUrl}');
 
+      AppSettings? settings = await DatabaseService.instance.readAppSettings(userId);
+      if (settings == null) {
+        settings = AppSettings(
+          userId: userId,
+          theme: 'system',
+          notificationsEnabled: true,
+          reminderTime: 15,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        await DatabaseService.instance.createAppSettings(settings);
+      }
+
       if (mounted) {
         setState(() {
           _user = user;
+          _settings = settings;
           _isLoading = false;
         });
       }
@@ -199,6 +232,67 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     // 🔥 Реализуем удаление аккаунта
     await _deleteAccount();
+  }
+
+  String _getThemeLabel(String? theme) {
+    switch (theme) {
+      case 'light': return 'Светлая';
+      case 'dark': return 'Тёмная';
+      default: return 'Системная';
+    }
+  }
+
+  Future<void> _showThemeBottomSheet() async {
+    final currentTheme = (_settings?.theme ?? 'system');
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            title: const Text('Системная'),
+            trailing: currentTheme == 'system' ? const Icon(Icons.check) : null,
+            onTap: () => Navigator.pop(context, 'system'),
+          ),
+          ListTile(
+            title: const Text('Светлая'),
+            trailing: currentTheme == 'light' ? const Icon(Icons.check) : null,
+            onTap: () => Navigator.pop(context, 'light'),
+          ),
+          ListTile(
+            title: const Text('Тёмная'),
+            trailing: currentTheme == 'dark' ? const Icon(Icons.check) : null,
+            onTap: () => Navigator.pop(context, 'dark'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == null || result == currentTheme) return;
+
+    // Обновляем в БД
+    final userId = _user!.id;
+    final newSettings = AppSettings(
+      userId: userId,
+      theme: result,
+      notificationsEnabled: _settings?.notificationsEnabled ?? true,
+      reminderTime: _settings?.reminderTime ?? 15,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    await DatabaseService.instance.updateAppSettings(newSettings);
+
+    // Перезапускаем UI с новой темой
+    if (mounted) {
+      setState(() {
+        _settings = newSettings;
+      });
+    }
+
+    // Просто обновляем через Provider
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    await themeProvider.setTheme(result); // 'light', 'dark', 'system'
   }
 
   @override
@@ -347,6 +441,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
               ),
+            ),
+            const SizedBox(height: 32),
+            ListTile(
+              leading: const Icon(Icons.palette),
+              title: const Text('Тема'),
+              subtitle: Text(_getThemeLabel(_settings?.theme)),
+              onTap: _showThemeBottomSheet,
             ),
             const Spacer(),
           ],

@@ -836,7 +836,7 @@ class DatabaseService {
     return settings;
   }
 
-  Future<AppSettings?> readAppSettings(int userId) async {
+  Future<AppSettings?> readAppSettings(String userId) async {
     final db = await database;
     final result = await db.query('app_settings', where: 'user_id = ?', whereArgs: [userId]);
     if (result.isEmpty) return null;
