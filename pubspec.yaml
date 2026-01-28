@@ -27,6 +27,8 @@ dependencies:
   image_cropper: ^11.0.0
   cached_network_image: ^3.4.1
   emoji_picker_flutter: ^4.4.0
+  uni_links: ^0.5.1
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:
