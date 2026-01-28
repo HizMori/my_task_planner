@@ -107,11 +107,8 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<ThemeMode>(
-      future: _loadThemeMode(),
-      builder: (context, snapshot) {
-        final themeMode = snapshot.data ?? ThemeMode.system;
-
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
         return MaterialApp(
           title: 'Task Planner',
           localizationsDelegates: const [
@@ -126,7 +123,7 @@ class MyApp extends StatelessWidget {
           locale: const Locale('ru'),
           theme: lightTheme,
           darkTheme: darkTheme,
-          themeMode: Provider.of<ThemeProvider>(context, listen: true).themeMode,
+          themeMode: themeProvider.themeMode, // ✅ Теперь безопасно
           home: FutureBuilder<Widget>(
             future: _getInitialScreen(),
             builder: (context, snapshot) {

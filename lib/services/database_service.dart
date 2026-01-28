@@ -274,7 +274,7 @@ class DatabaseService {
       }
     }
 
-    var whereClause = 'name LIKE ?';
+    var whereClause = 'name LIKE ? AND deleted_at IS NULL';
     var whereArgs = ['%$query%'];
 
     if (excludeMe && myId != null) {
@@ -292,6 +292,7 @@ class DatabaseService {
           .from('users')
           .select('id, name, email, telephone, avatar_url, created_at, updated_at, last_sync_at')
           .ilike('name', '%$query%')
+          .filter('deleted_at', 'is', null)
           .limit(10);
 
       return response.map((map) => User.fromMap(map)).toList();

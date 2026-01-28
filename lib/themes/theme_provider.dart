@@ -4,7 +4,7 @@ import '../services/auth_service.dart';
 import '../models/app_settings.dart';
 
 class ThemeProvider extends ChangeNotifier {
-  late ThemeMode _themeMode;
+  ThemeMode _themeMode = ThemeMode.system;
   String _themeSetting = 'system'; // 'light', 'dark', 'system'
 
   ThemeMode get themeMode => _themeMode;
@@ -30,16 +30,12 @@ class ThemeProvider extends ChangeNotifier {
   }
 
   void _applyThemeMode(String theme) {
-    switch (theme) {
-      case 'light':
-        _themeMode = ThemeMode.light;
-        break;
-      case 'dark':
-        _themeMode = ThemeMode.dark;
-        break;
-      default:
-        _themeMode = ThemeMode.system;
-    }
+    _themeMode = switch (theme) {
+      'light' => ThemeMode.light,
+      'dark' => ThemeMode.dark,
+      'system' => ThemeMode.system,
+      _ => ThemeMode.system,
+    };
   }
 
   Future<void> setTheme(String theme) async {
