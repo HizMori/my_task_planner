@@ -22,6 +22,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'themes/app_theme.dart';
 import 'themes/theme_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:app_links/app_links.dart';
+import 'screens/reset_password_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,18 +33,105 @@ Future<void> main() async {
     anonKey: 'sb_publishable_nzc7YWw8V8N6HwDdzQhI6g_o2sjALYS',
   );
 
+  // Инициализация deep links
+  final appLinks = AppLinks();
+  // Получаем начальную ссылку (если приложение открыли по deep link)
+  final initialUri = await appLinks.getInitialLink();
+
   runApp(
     ChangeNotifierProvider(
       create: (_) => ThemeProvider(),
-      child: const MyApp(),
+      child: MyApp(initialUri: initialUri),
     ),
   );
 }
 
 final supabase = Supabase.instance.client;
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class MyApp extends StatefulWidget {
+  final Uri? initialUri;
+  const MyApp({super.key, this.initialUri});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  late final StreamSubscription<Uri?> _linkSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Подписываемся на все последующие deep links
+    _linkSubscription = AppLinks().uriLinkStream.listen((uri) {
+      if (uri != null) {
+        _handleDeepLink(uri);
+      }
+    });
+
+    // Обрабатываем начальную ссылку
+    if (widget.initialUri != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _handleDeepLink(widget.initialUri!);
+      });
+    }
+  }
+
+  void _handleDeepLink(Uri uri) async {
+  print('Deep link received: ${uri.toString()}');
+  print('Fragment: ${uri.fragment}');
+
+  if (uri.scheme == 'taskplanner' && uri.path.contains('reset-password')) {  // Упростил проверку
+    final params = Uri.parse('?' + uri.fragment).queryParameters;
+    print('Params: $params');
+
+    final tokenHash = params['token_hash'] ?? params['access_token'];
+    final type = params['type'];
+
+    if (type == 'recovery' && tokenHash != null) {
+      try {
+        await supabase.auth.verifyOTP(
+          tokenHash: tokenHash,
+          type: OtpType.recovery,
+        );
+        print('OTP verified');
+
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ResetPasswordScreen()),
+          );
+        }
+      } catch (e) {
+        print('Error: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+        }
+      }
+    }
+  }
+}
+
+  late final _authSubscription = supabase.auth.onAuthStateChange.listen((data) {
+    final event = data.event;
+    if (event == AuthChangeEvent.passwordRecovery) {
+      print('Auth event: passwordRecovery');  // Для отладки
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ResetPasswordScreen()),
+        );
+      }
+    }
+  });
+
+  @override
+  void dispose() {
+    _authSubscription.cancel();
+    _linkSubscription.cancel();
+    super.dispose();
+  }
 
   // Метод для определения начального экрана на основе статуса входа и первого запуска
   Future<Widget> _getInitialScreen() async {
@@ -123,7 +212,7 @@ class MyApp extends StatelessWidget {
           locale: const Locale('ru'),
           theme: lightTheme,
           darkTheme: darkTheme,
-          themeMode: themeProvider.themeMode, // ✅ Теперь безопасно
+          themeMode: themeProvider.themeMode,
           home: FutureBuilder<Widget>(
             future: _getInitialScreen(),
             builder: (context, snapshot) {
@@ -140,6 +229,19 @@ class MyApp extends StatelessWidget {
               return snapshot.data!;
             },
           ),
+          routes: {
+            '/home': (context) => const HomeScreen(),
+            '/tasks': (context) => const TaskListScreen(),
+            '/calendar': (context) => const CalendarScreen(),
+            '/contacts': (context) => const ContactsScreen(),
+            '/settings': (context) => const SettingsScreen(),
+            '/countdowns': (context) => const CountdownsScreen(),
+            '/account': (context) => const AccountScreen(),
+            '/create_task': (context) => const CreateTaskScreen(),
+            '/groups': (context) => const GroupListScreen(),
+            '/create_group': (context) => const CreateGroupScreen(),
+            '/reset': (context) => const ResetPasswordScreen(),
+          },
         );
       },
     );

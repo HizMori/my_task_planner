@@ -43,10 +43,12 @@ class _AccountScreenState extends State<AccountScreen> {
 
   // Метод для выхода из аккаунта
   Future<void> _logout() async {
+    final theme = Theme.of(context);
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Выход'),
+        backgroundColor: theme.scaffoldBackgroundColor,
         content: const Text('Вы уверены, что хотите выйти?'),
         actions: [
           TextButton(

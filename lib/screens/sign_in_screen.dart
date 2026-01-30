@@ -6,6 +6,7 @@ import 'signup_screen.dart';
 import '../services/database_service.dart'; // Локальная БД
 import '../services/auth_service.dart'; // Auth сервис
 import '../themes/app_theme.dart';
+import '../screens/forgot_password_screen.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -311,7 +312,14 @@ class _SignInScreenState extends State<SignInScreen> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         TextButton(
-                          onPressed: () {},
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const ForgotPasswordScreen(),
+                              ),
+                            );
+                          },
                           child: Text(
                             'Забыл пароль?',
                             style: GoogleFonts.poppins(
