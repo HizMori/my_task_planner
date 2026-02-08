@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import '../models/group.dart';
 import '../services/database_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
-import '/screens/group_list_screen.dart';
 import '../models/group_member.dart';
 
-
 class CreateGroupScreen extends StatefulWidget {
-  const CreateGroupScreen({super.key});
+  final Group? group;
+
+  const CreateGroupScreen({super.key, this.group});
 
   @override
   State<CreateGroupScreen> createState() => _CreateGroupScreenState();
@@ -20,12 +20,20 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
   bool _isLoading = false;
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.group != null) {
+      _nameController.text = widget.group!.name;
+    }
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     super.dispose();
   }
 
-  Future<void> _createGroup() async {
+  Future<void> _saveGroup() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
@@ -56,52 +64,60 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
 
       try {
         final now = DateTime.now();
-        final groupId = _db.uuid.v4();
-        final group = Group(
-          id: groupId, // ID через uuid
-          name: _nameController.text.trim(),
-          creatorId: userId, // реальный ID
-          createdAt: now,
-          updatedAt: now,
-          lastSyncAt: now,
-        );
-        // Сохраняем в локальную БД
-        await _db.createGroup(group);
+        final isEditing = widget.group != null;
+        late Group group;
 
-        // 2. Добавляем создателя в локальные участники
-        await _db.createGroupMember(GroupMember(
-          groupId: groupId,
-          userId: userId,
-          joinedAt: now,
-          updatedAt: now,
-          lastSyncAt: now,
-        ));
-
-        // Отправляем в Supabase
-        await Supabase.instance.client.from('groups').insert({
-          'id': groupId,
-          'name': group.name,
-          'creator_id': userId,
-          'created_at': now.toIso8601String(),
-          'updated_at': now.toIso8601String(),
-          'last_sync_at': now.toIso8601String(),
-        });
-
-        // Добавляем создателя как участника группы в Supabase
-        await Supabase.instance.client.from('group_members').insert({
-          'group_id': groupId,
-          'user_id': userId,
-          'joined_at': now.toIso8601String(),
-          'updated_at': now.toIso8601String(),
-          'last_sync_at': now.toIso8601String(),
-        });
-
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Группа создана!')),
+        if (isEditing) {
+          group = widget.group!.copyWith(
+            name: _nameController.text.trim(),
+            updatedAt: now,
           );
-          Navigator.pop(context, group); // Возвращаем созданную группу
-          
+
+          // Обновляем в локальной БД
+          await _db.updateGroup(group);
+
+          // Синхронизируем с Supabase
+          await _db.syncGroupsToSupabase();
+
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Группа обновлена!')),
+            );
+            Navigator.pop(context, true); // Возвращаем true для обновления
+          }
+        } else {
+          final groupId = _db.uuid.v4();
+          group = Group(
+            id: groupId,
+            name: _nameController.text.trim(),
+            creatorId: userId,
+            createdAt: now,
+            updatedAt: now,
+            lastSyncAt: now,
+          );
+
+          // Сохраняем в локальную БД
+          await _db.createGroup(group);
+
+          // Добавляем создателя в локальные участники
+          await _db.createGroupMember(GroupMember(
+            groupId: groupId,
+            userId: userId,
+            joinedAt: now,
+            updatedAt: now,
+            lastSyncAt: now,
+          ));
+
+          // Синхронизируем с Supabase
+          await _db.syncGroupsToSupabase();
+          await _db.syncGroupMembersToSupabase();
+
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Группа создана!')),
+            );
+            Navigator.pop(context, true); // Возвращаем true для обновления
+          }
         }
       } catch (e) {
         if (context.mounted) {
@@ -122,14 +138,15 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isEditing = widget.group != null;
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, size: 24), 
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('Создать группу')
-        ),
+        title: Text(isEditing ? 'Изменить группу' : 'Создать группу'),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -174,16 +191,16 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                   return null;
                 },
                 textInputAction: TextInputAction.done,
-                onFieldSubmitted: (_) => _createGroup(),
+                onFieldSubmitted: (_) => _saveGroup(),
               ),
 
               const SizedBox(height: 32),
 
-              // Кнопка "Создать"
+              // Кнопка "Создать" или "Сохранить"
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _isLoading ? null : _createGroup,
+                  onPressed: _isLoading ? null : _saveGroup,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
@@ -192,9 +209,9 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                   ),
                   child: _isLoading
                       ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text(
-                          'Создать группу',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      : Text(
+                          isEditing ? 'Сохранить' : 'Создать группу',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                 ),
               ),

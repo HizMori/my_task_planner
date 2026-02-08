@@ -5,6 +5,8 @@ import 'group_members_screen.dart';
 import 'group_chat_screen.dart';
 import 'group_tasks_screen.dart';
 import '../services/database_service.dart';
+import 'create_group_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class GroupDetailsScreen extends StatefulWidget {
   final Group group;
@@ -20,17 +22,53 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen>
   late TabController _tabController;
   final DatabaseService _db = DatabaseService.instance;
   bool _isLoading = false;
+  String? _currentUserId;
+  late Group _group;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _group = widget.group;
+    _loadCurrentUserId();
+  }
+
+  Future<void> _loadCurrentUserId() async {
+    try {
+      final response = await Supabase.instance.client.auth.getUser();
+      if (mounted) {
+        setState(() {
+          _currentUserId = response.user?.id;
+        });
+      }
+    } catch (e) {
+      print('Ошибка получения userId: $e');
+    }
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _editGroup() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreateGroupScreen(group: _group),
+      ),
+    );
+
+    if (result == true && mounted) {
+      // Reload group from DB to update UI
+      final updatedGroup = await _db.readGroupById(_group.id);
+      if (updatedGroup != null) {
+        setState(() {
+          _group = updatedGroup;
+        });
+      }
+    }
   }
 
   Future<void> _deleteGroup() async {
@@ -98,49 +136,69 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isCreator = _currentUserId == _group.creatorId;
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, size: 24), 
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text(widget.group.name),
+        title: Text(_group.name),
         centerTitle: true,
         actions: [
-          // Кнопка "ещё" с меню
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            onSelected: (value) {
-              if (value == 'delete') {
-                _deleteGroup();
-              }
-            },
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'delete',
-                child: Row(
-                  children: [
-                    const Icon(Icons.delete, color: Colors.red, size: 18),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Удалить группу',
-                      style: TextStyle(
-                        color: Colors.red,
-                        fontSize: 14,
+          // Кнопка "ещё" с меню только для создателя
+          if (isCreator)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
+              onSelected: (value) {
+                if (value == 'delete') {
+                  _deleteGroup();
+                } else if (value == 'edit') {
+                  _editGroup();
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit, color: Colors.blue, size: 18),
+                      SizedBox(width: 10),
+                      Text(
+                        'Изменить группу',
+                        style: TextStyle(
+                          color: Colors.blue,
+                          fontSize: 14,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete, color: Colors.red, size: 18),
+                      SizedBox(width: 10),
+                      Text(
+                        'Удалить группу',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              // offset сдвигает меню вниз и влево
+              offset: const Offset(-10, 40), // x: -10 (чуть левее), y: 40 (вниз от AppBar)
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
               ),
-            ],
-            // offset сдвигает меню вниз и влево
-            offset: const Offset(-10, 40), // x: -10 (чуть левее), y: 40 (вниз от AppBar)
-            elevation: 4,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
+              color: theme.scaffoldBackgroundColor,
             ),
-            color: theme.scaffoldBackgroundColor,
-          ),
           const SizedBox(width: 8),
         ],
         bottom: TabBar(
@@ -171,11 +229,11 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen>
         controller: _tabController,
         children: [
           // Вкладка: Участники
-          GroupMembersScreen(group: widget.group),
+          GroupMembersScreen(group: _group),
           // Вкладка: Чат
-          GroupChatScreen(groupId: widget.group.id),
+          GroupChatScreen(groupId: _group.id),
           // Вкладка: Задачи
-          GroupTasksScreen(group: widget.group),
+          GroupTasksScreen(group: _group),
         ],
       ),
     );

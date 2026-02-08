@@ -177,6 +177,31 @@ class DatabaseService {
     }
   }
 
+  Future<void> syncGroupsToSupabase() async {
+    try {
+      final db = await database;
+      final result = await db.query(
+        'groups',
+        where: 'updated_at > last_sync_at OR last_sync_at IS NULL',
+      );
+
+      final groupsToSync = result.map((e) => Group.fromMap(e)).toList();
+
+      for (var group in groupsToSync) {
+        final data = group.toMap();
+        await supabase.from('groups').upsert(data);
+        await db.update(
+          'groups',
+          {'last_sync_at': DateTime.now().toIso8601String()},
+          where: 'id = ?',
+          whereArgs: [group.id],
+        );
+      }
+    } catch (e) {
+      print('Ошибка выгрузки групп в Supabase: $e');
+    }
+  }
+
   Future<List<Task>> readUserTasks(String userId) async {
     final db = await database;
 
