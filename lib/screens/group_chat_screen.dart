@@ -7,6 +7,7 @@ import '../../services/database_service.dart';
 import '../../services/auth_service.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
+import 'package:flutter/services.dart';
 
 class GroupChatScreen extends StatefulWidget {
   // Передаём ID группы — важно!
@@ -809,6 +810,29 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
     );
   }
 
+  void _copyMessage(String content) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    Clipboard.setData(ClipboardData(text: content));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Сообщение скопировано',
+          style: TextStyle(
+            color: isDarkMode ? Colors.white : Colors.black87,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: isDarkMode ? Colors.grey[800] : Colors.white,
+        elevation: 6,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+
   void _showMessageMenu(BuildContext context, Message message, GlobalKey contentKey, bool isDarkMode) {
     if (_messageMenuEntry != null) return;
 
@@ -844,7 +868,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
     double menuHeight = (canBeEdited ? 60 : 0) + (canBeDeleted ? 60 : 0);
   
     // Offsets для тонкой настройки
-    const double horizontalOffset = 40;  // Измените: >0 правее, <0 левее
+    final double horizontalOffset = isSender ? 40 : -40;  // Измените: >0 правее, <0 левее
     const double verticalOffset = -30;     // Измените: >0 ниже, <0 выше
     print('🔧 Применённые offsets: horizontal=$horizontalOffset, vertical=$verticalOffset');
     
@@ -932,6 +956,20 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                                   _startEditing(message);
                                 },
                               ),
+                            ListTile( // ← Новый пункт: Копировать
+                              leading: Icon(Icons.copy, size: 18, color: isDarkMode ? Colors.grey[300] : Colors.grey[700]),
+                              title: Text(
+                                "Копировать", 
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: isDarkMode ? Colors.white : Colors.black87,
+                                ),
+                              ),
+                              onTap: () {
+                                _hideMessageMenu();
+                                _copyMessage(message.content);
+                              },
+                            ),
                             if (canBeDeleted)
                               ListTile(
                                 leading: Icon(Icons.delete, size: 18, color: isDarkMode ? Colors.red[300] : Colors.red),
