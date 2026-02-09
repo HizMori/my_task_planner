@@ -82,7 +82,7 @@ class _MyAppState extends State<MyApp> {
   print('Deep link received: ${uri.toString()}');
   print('Fragment: ${uri.fragment}');
 
-  if (uri.scheme == 'taskplanner' && uri.path.contains('reset-password')) {  // Упростил проверку
+  if (uri.scheme == 'taskplanner' && uri.path.contains('reset-password')) { 
     final params = Uri.parse('?' + uri.fragment).queryParameters;
     print('Params: $params');
 

@@ -32,7 +32,8 @@
                 <!-- Accepts URIs that begin with YOUR_SCHEME://YOUR_HOST -->
                 <data
                 android:scheme="taskplanner"
-                android:host="reset-password" />
+                android:host="reset-password"
+                android:pathPrefix="/reset" />
             </intent-filter>
         </activity>
         <activity
