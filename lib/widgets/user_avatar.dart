@@ -23,7 +23,7 @@ class UserAvatar extends StatelessWidget {
           .single();
 
       final avatarUrl = (response as Map)['avatar_url'] as String?;
-      if (avatarUrl != null) {
+      if (avatarUrl != null && avatarUrl.isNotEmpty) {
         // Обновим локально при возможности
         final updatedUser = user.copyWith(avatarUrl: avatarUrl);
         await DatabaseService.instance.updateUser(updatedUser);

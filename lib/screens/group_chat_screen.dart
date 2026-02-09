@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../models/message.dart';
-import '../../models/user.dart';
-import '../../services/database_service.dart';
-import '../../services/auth_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide User;
+import '../models/message.dart';
+import '../models/user.dart';
+import '../services/database_service.dart';
+import '../services/auth_service.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter/services.dart';
+import '../widgets/user_avatar.dart';
 
 class GroupChatScreen extends StatefulWidget {
   // Передаём ID группы — важно!
@@ -77,8 +78,22 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
 
       for (final m in response) {
         final id = m['id'] as String;
+        final senderId = m['sender_id'] as String;
         final name = m['sender_name'] as String? ?? 'Пользователь';
-        _userNames[m['sender_id']] = name;
+        _userNames[senderId] = name;
+
+        if (senderId != null && name != null) {
+          final cached = _userCache[senderId];
+          if (cached == null || cached.name != name) {
+            _userCache[senderId] = User(
+              id: senderId,
+              name: name,
+              avatarUrl: null,
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            );
+          }
+        }
 
         final message = Message(
           id: id,
@@ -185,6 +200,22 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
             continue;
           }
 
+          if (senderId != 'unknown' && data.containsKey('sender_name')) {
+            final String? name = data['sender_name'] as String?;
+            final cachedUser = _userCache[senderId];
+
+            // Если пользователя ещё нет или имя изменилось — добавим/обновим
+            if (cachedUser == null || cachedUser.name != name) {
+              _userCache[senderId] = User(
+                id: senderId,
+                name: name ?? 'Пользователь',
+                avatarUrl: null, // будет загружен позже через UserAvatar
+                createdAt: sentAt,
+                updatedAt: sentAt,
+              );
+            }
+          }
+
           // Получаем имя
           String? senderName = data['sender_name'] as String?;
 
@@ -238,14 +269,16 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
       final user = await _db.readUserById(_currentUserId ?? '');
        _currentUserName = user?.name ?? 'Вы';
     // Загрузим имена всех участников группы
-      await _preloadUserNames();
+      await _preloadUserInfo();
     } catch (e) {
       print('Ошибка загрузки пользователя: $e');
       _currentUserName = 'Вы';
     }
   }
 
-  Future<void> _preloadUserNames() async {
+  final Map<String, User> _userCache = {};
+
+  Future<void> _preloadUserInfo() async {
     try {
       final members = await Supabase.instance.client
           .from('group_members')
@@ -257,14 +290,15 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
 
       final users = await Supabase.instance.client
           .from('users')
-          .select('id, name')
+          .select('id, name, avatar_url, created_at, updated_at')
           .filter('id', 'in', userIds);
 
       for (var u in users) {
-        _userNames[u['id']] = u['name'];
+        final user = User.fromMap(u);
+        _userCache[user.id] = user;
       }
     } catch (e) {
-      print('Ошибка загрузки имён пользователей: $e');
+      print('Ошибка загрузки профилей: $e');
     }
   }
 
@@ -516,6 +550,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                               ),
                             );
                           }
+                          // ГРУППИРОВКА: Определяем начало и конец блока
+                          final bool isStartOfGroup = _isStartOfMessageGroup(index);
+                          final bool isEndOfGroup = _isEndOfMessageGroup(index);
+
                           return Column(
                             children: [
                               if (showDate)
@@ -529,6 +567,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                                 otherMessageText,
                                 timeTextColorMy,
                                 timeTextColorOther,
+                                isStart: isStartOfGroup,
+                                isEnd: isEndOfGroup,
                               ),
                             ],
                           );
@@ -606,6 +646,32 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
         ],
       ),
     );
+  }
+
+  // Проверяет, является ли это сообщение началом группы
+  bool _isStartOfMessageGroup(int index) {
+    if (index == 0) return true;
+
+    final current = _messages[index];
+    final previous = _messages[index - 1];
+
+    final isSameSender = current.senderId == previous.senderId;
+    final isCloseInTime = current.sentAt.difference(previous.sentAt).inMinutes < 5;
+
+    return !isSameSender || !isCloseInTime;
+  }
+
+  /// Проверяет, является ли это сообщение концом группы
+  bool _isEndOfMessageGroup(int index) {
+    if (index == _messages.length - 1) return true;
+
+    final current = _messages[index];
+    final next = _messages[index + 1];
+
+    final isSameSender = current.senderId == next.senderId;
+    final isCloseInTime = next.sentAt.difference(current.sentAt).inMinutes < 5;
+
+    return !isSameSender || !isCloseInTime;
   }
 
   void _undoLastEmoji() {
@@ -694,32 +760,27 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
   }
 
   Widget _buildMessageBubble(
-    Message message, 
-    bool isMe, 
-    bool isDarkMode, 
-    Color myMessageBg, 
-    Color otherMessageBg, 
+    Message message,
+    bool isMe,
+    bool isDarkMode,
+    Color myMessageBg,
+    Color otherMessageBg,
     Color otherMessageText,
     Color timeTextColorMy,
-    Color timeTextColorOther,
+    Color timeTextColorOther, {
+    required bool isStart,
+    required bool isEnd, 
+    }
   ) {
     final contentKey = _messageContentKeys[message.id] ??= GlobalKey();
-    final String senderName = isMe ? 'Вы' : message.senderName ?? 'Пользователь';
-    final String timeText = _formatTime(message.sentAt);
+    final bool showAvatar = !isMe; // Только у чужих
+
+    final User? senderUser = _userCache[message.senderId];
+    final String senderName = senderUser?.name ?? message.senderName ?? 'Пользователь';
 
     return GestureDetector(
       onLongPress: () {
-        print('✅ Долгое нажатие на сообщение: ${message.id}');
-  
-        final overlay = Overlay.of(context);
-        print('Overlay.of(context): $overlay');
-        
-        if (overlay == null) {
-          print('❌ Overlay не найден! Контекст не подключён к Overlay.');
-        } else {
-          print('✅ Overlay найден! Можно вставлять меню.');
-          _showMessageMenu(context, message, contentKey, isDarkMode); // Только если Overlay есть
-        }
+        _showMessageMenu(context, message, contentKey, isDarkMode);
       },
       child: Padding(
         padding: EdgeInsets.only(
@@ -730,80 +791,101 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
         ),
         child: Align(
           alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.75,
-            ),
-            child: IntrinsicWidth(
-              stepWidth: 10.0,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isMe ? myMessageBg : otherMessageBg,
-                  borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(18),
-                    topRight: const Radius.circular(18),
-                    bottomLeft: isMe ? const Radius.circular(18) : const Radius.circular(4),
-                    bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(18),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              // Аватарка (слева от чужих сообщений)
+              if (showAvatar && isEnd && senderUser != null)
+                Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  child: UserAvatar(
+                    user: senderUser,
+                    radius: 16, // маленькая аватарка
                   ),
                 ),
-                child: Column(
-                  key: contentKey,
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (!isMe)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 12, top: 8, right: 12),
-                        child: Text(
-                          senderName,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            color: isMe ? Colors.white70 : (isDarkMode ? Colors.white : Colors.black),
-                          ),
-                        ),
-                      ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      child: Text(
-                        message.content,
-                        style: TextStyle(
-                          color: isMe ? Colors.white : otherMessageText,
-                          fontSize: 16,
-                        ),
-                        softWrap: true,
-                        overflow: TextOverflow.visible,
+
+              // Пустое место вместо аватарки, чтобы следующие сообщения были на уровне первого
+              if (showAvatar && !isEnd) const SizedBox(width: 40), // avatar radius + margin
+
+              // Само сообщение
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.75,
+                ),
+                child: IntrinsicWidth(
+                  stepWidth: 10.0,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: isMe ? myMessageBg : otherMessageBg,
+                      borderRadius: BorderRadius.only(
+                        topLeft: const Radius.circular(18),
+                        topRight: const Radius.circular(18),
+                        bottomLeft: isMe ? const Radius.circular(18) : const Radius.circular(4),
+                        bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(18),
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 12, right: 12, bottom: 8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          if (message.isEdited)
-                            Text(
-                              'изменено • ',
+                    child: Column(
+                      key: contentKey,
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Имя (только у чужих)
+                        if (!isMe && isStart)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 12, top: 8, right: 12),
+                            child: Text(
+                              senderName,
                               style: TextStyle(
-                                fontSize: 11,
-                                color: isMe ? timeTextColorMy : timeTextColorOther,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: isMe ? Colors.white70 : (isDarkMode ? Colors.white : Colors.black),
                               ),
-                            )
-                          else
-                            const SizedBox(),
-                          Text(
-                            _formatTime(message.sentAt),
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: isMe ? timeTextColorMy : timeTextColorOther,
                             ),
                           ),
-                        ],
-                      ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          child: Text(
+                            message.content,
+                            style: TextStyle(
+                              color: isMe ? Colors.white : otherMessageText,
+                              fontSize: 16,
+                            ),
+                            softWrap: true,
+                            overflow: TextOverflow.visible,
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 12, right: 12, bottom: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              if (message.isEdited)
+                                Text(
+                                  'изменено • ',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: isMe ? timeTextColorMy : timeTextColorOther,
+                                  ),
+                                )
+                              else
+                                const SizedBox(),
+                              Text(
+                                _formatTime(message.sentAt),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: isMe ? timeTextColorMy : timeTextColorOther,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
         ),
       ),
