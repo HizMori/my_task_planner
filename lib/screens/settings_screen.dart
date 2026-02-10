@@ -155,7 +155,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   style: GoogleFonts.poppins(color: textColor),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 15),
               Text(
                 'Подсказка не хранится в открытом виде',
                 style: theme.textTheme.bodySmall?.copyWith(color: hintColor),

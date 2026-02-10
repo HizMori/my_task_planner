@@ -387,7 +387,6 @@ class DatabaseService {
         id TEXT PRIMARY KEY ,
         title TEXT NOT NULL,
         description TEXT,
-        due_date TEXT,
         deadline TEXT, 
         priority TEXT NOT NULL,
         category TEXT NOT NULL,
