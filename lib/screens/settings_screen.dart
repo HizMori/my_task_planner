@@ -13,6 +13,12 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'edit_profile_screen.dart';
 import 'welcome_screen.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../screens/lock_screen.dart';
+import 'dart:math';
+import 'package:crypto/crypto.dart';
+import 'dart:convert';
+import 'package:google_fonts/google_fonts.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -25,11 +31,260 @@ class _SettingsScreenState extends State<SettingsScreen> {
   User? _user;
   bool _isLoading = true;
   AppSettings? _settings;
+  bool _isLockEnabled = false;
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    _loadLockSetting();
+  }
+
+  Future<void> _loadLockSetting() async {
+    final prefs = await SharedPreferences.getInstance();
+    final enabled = prefs.getBool(LockScreen.PREFS_KEY_ENABLED) ?? false;
+    if (mounted) {
+      setState(() {
+        _isLockEnabled = enabled;
+      });
+    }
+  }
+
+  Future<void> _setPinCode() async {
+    final pinController = TextEditingController();
+    final hintController = TextEditingController();
+
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final textColor = isDarkMode ? Colors.white : Colors.black;
+    final hintColor = isDarkMode ? Colors.grey[400] : Colors.grey;
+    final fieldFillColor = isDarkMode ? Colors.grey[800] : Colors.white;
+
+    final result = await showDialog<Map<String, String>?>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: theme.scaffoldBackgroundColor,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Row(
+            children: [
+              Icon(Icons.lock, color: theme.primaryColor),
+              const SizedBox(width: 8),
+              Text(
+                'Установите PIN',
+                style: theme.textTheme.headlineSmall?.copyWith(color: textColor),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Поле PIN — в стиле SignInScreen
+              Container(
+                decoration: BoxDecoration(
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(isDarkMode ? 0.1 : 0.2),
+                      offset: const Offset(0, 4),
+                      blurRadius: 8,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+                child: TextField(
+                  controller: pinController,
+                  obscureText: true,
+                  keyboardType: TextInputType.number,
+                  maxLength: 4,
+                  decoration: InputDecoration(
+                    prefixIcon: Icon(Icons.pin, color: theme.primaryColor),
+                    labelText: '4-значный PIN',
+                    labelStyle: GoogleFonts.poppins(color: hintColor),
+                    floatingLabelStyle: GoogleFonts.poppins(color: theme.primaryColor),
+                    filled: true,
+                    fillColor: fieldFillColor,
+                    counterText: '',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: theme.primaryColor, width: 1.5),
+                    ),
+                  ),
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    color: textColor,
+                    letterSpacing: 4,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Поле Подсказка — аналогично
+              Container(
+                decoration: BoxDecoration(
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(isDarkMode ? 0.1 : 0.2),
+                      offset: const Offset(0, 4),
+                      blurRadius: 8,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+                child: TextField(
+                  controller: hintController,
+                  decoration: InputDecoration(
+                    prefixIcon: Icon(Icons.help_outline, color: theme.primaryColor),
+                    labelText: 'Подсказка',
+                    labelStyle: GoogleFonts.poppins(color: hintColor),
+                    floatingLabelStyle: GoogleFonts.poppins(color: theme.primaryColor),
+                    filled: true,
+                    fillColor: fieldFillColor,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: theme.primaryColor, width: 1.5),
+                    ),
+                  ),
+                  style: GoogleFonts.poppins(color: textColor),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Подсказка не хранится в открытом виде',
+                style: theme.textTheme.bodySmall?.copyWith(color: hintColor),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Отмена',
+                style: GoogleFonts.poppins(color: hintColor),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final pin = pinController.text;
+                if (pin.length == 4) {
+                  Navigator.pop(context, {
+                    'pin': pin,
+                    'hint': hintController.text.trim(),
+                  });
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('PIN должен быть 4-значным')),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.primaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: Text(
+                'OK',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result == null) return;
+
+    // Генерируем резервный код: 6 символов (A-Z, 0-9)
+    final recoveryCode = _generateRecoveryCode();
+    final prefs = await SharedPreferences.getInstance();
+
+    // Сохраняем данные
+    await prefs.setString(LockScreen.PREFS_KEY_PIN_HASH, _hash(result['pin']!));
+    await prefs.setString(LockScreen.PREFS_KEY_HINT, result['hint']!);
+    await prefs.setString(LockScreen.PREFS_KEY_RECOVERY_CODE_HASH, _hash(recoveryCode));
+    await prefs.setBool(LockScreen.PREFS_KEY_ENABLED, true);
+
+    // Показываем резервный код один раз
+    await _showRecoveryCodeDialog(recoveryCode);
+
+    setState(() {
+      _isLockEnabled = true;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Блокировка включена')));
+  }
+
+  String _generateRecoveryCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    final random = Random();
+    return List.generate(6, (i) => chars[random.nextInt(chars.length)]).join();
+  }
+
+  Future<void> _showRecoveryCodeDialog(String code) async {
+    return showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text("Резервный код"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              "Сохраните этот код. Он понадобится, если вы забудете PIN:",
+              style: TextStyle(fontSize: 14),
+            ),
+            SizedBox(height: 12),
+            SelectableText(
+              code,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 2,
+                backgroundColor: Colors.grey[100],
+              ),
+            ),
+            SizedBox(height: 16),
+            Text(
+              "⚠️ Если потеряете этот код и забудете PIN — доступ к данным будет потерян.",
+              style: TextStyle(fontSize: 12, color: Colors.red),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+            },
+            child: Text("Я сохранил"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _hash(String input) {
+    final bytes = utf8.encode(input);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
+  }
+
+  Future<void> _disableLock() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(LockScreen.PREFS_KEY_PIN_HASH);
+    await prefs.setBool(LockScreen.PREFS_KEY_ENABLED, false);
+    if (mounted) {
+      setState(() {
+        _isLockEnabled = false;
+      });
+    }
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Блокировка отключена')));
   }
 
   Future<void> _loadUserData() async {
@@ -230,7 +485,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (confirmed != true) return;
 
-    // 🔥 Реализуем удаление аккаунта
+    // Реализуем удаление аккаунта
     await _deleteAccount();
   }
 
@@ -298,6 +553,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final inactiveColor = isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
 
     if (_isLoading) {
       return Scaffold(
@@ -320,7 +577,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           // Кнопка "Редактировать"
           IconButton(
-            icon: const Icon(Icons.edit, size: 24),
+            icon: Icon(
+              Icons.edit, 
+              size: 24,
+              color: inactiveColor,
+              ),
             onPressed: () async {
               final result = await Navigator.push(
                 context,
@@ -361,7 +622,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
             ),
-            icon: Icon(Icons.more_vert),
+            icon: Icon(
+              Icons.more_vert,
+              color: inactiveColor
+              ),
             color: theme.scaffoldBackgroundColor,
           ),
           SizedBox(width: 8),
@@ -444,12 +708,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 32),
             ListTile(
-              leading: const Icon(Icons.palette),
+              leading: Icon(
+                Icons.palette,
+                color: inactiveColor,
+                ),
               title: const Text('Тема'),
               subtitle: Text(_getThemeLabel(_settings?.theme)),
               onTap: _showThemeBottomSheet,
             ),
-            const Spacer(),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: Icon(
+                Icons.lock,
+                color: inactiveColor,
+                ),
+              title: const Text('Блокировка приложения'),
+              subtitle: Text(_isLockEnabled ? 'Включена' : 'Выключена'),
+              onTap: () {
+                if (_isLockEnabled) {
+                  _disableLock();
+                } else {
+                  _setPinCode();
+                }
+              },
+            ),
           ],
         ),
       ),

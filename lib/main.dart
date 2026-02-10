@@ -24,6 +24,7 @@ import 'themes/theme_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:app_links/app_links.dart';
 import 'screens/reset_password_screen.dart';
+import 'screens/lock_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -139,40 +140,41 @@ class _MyAppState extends State<MyApp> {
     final isFirstLaunch = prefs.getBool('isFirstLaunch') ?? true;
     final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
 
-    if (isFirstLaunch) {
-      await prefs.setBool('isFirstLaunch', false);
-      return const WelcomeScreen();
-    }
+    Widget mainScreen = const WelcomeScreen();
 
-    if (!isLoggedIn) {
-      return const WelcomeScreen();
-    }
-
-    // Пробуем онлайн-вход
-    try {
-      final response = await supabase.auth.getUser();
-      final user = response.user;
-      if (user != null) {
-        await AuthService.instance.syncCurrentUser();
-        return const MainScreen();
+    if (!isFirstLaunch && isLoggedIn) {
+      try {
+        final response = await supabase.auth.getUser();
+        final user = response.user;
+        if (user != null) {
+          await AuthService.instance.syncCurrentUser();
+          mainScreen = const MainScreen();
+        }
+      } catch (e) {
+        print('Онлайн-аутентификация не удалась: $e');
       }
-    } catch (e) {
-      print('Онлайн-аутентификация не удалась: $e');
-    }
 
-    // Офлайн-вход: если есть локальные данные
-    final userId = await AuthService.instance.getCurrentUserId();
-    if (userId != null) {
-      final localUser = await DatabaseService.instance.readUserById(userId);
-      if (localUser != null) {
-        print('Офлайн-вход: пользователь найден в локальной БД');
-        return const MainScreen();
+      // 🔐 Проверка: есть ли локальный пользователь?
+      if (mainScreen is WelcomeScreen) {
+        final userId = await AuthService.instance.getCurrentUserId();
+        if (userId != null) {
+          final localUser = await DatabaseService.instance.readUserById(userId);
+          if (localUser != null) {
+            print('Офлайн-вход: пользователь найден в локальной БД');
+            mainScreen = const MainScreen();
+          }
+        }
       }
     }
 
-    // Очищаем флаг, если не удалось войти
-    await AuthService.instance.setLoggedIn(false);
-    return const WelcomeScreen();
+    // Проверяем, включена ли защита экрана
+    final isLockEnabled = prefs.getBool(LockScreen.PREFS_KEY_ENABLED) ?? false;
+    if (isLockEnabled && mainScreen is MainScreen) {
+      // Оборачиваем MainScreen в LockScreen
+      return LockScreen(nextScreen: mainScreen);
+    }
+
+    return mainScreen;
   }
 
   Future<ThemeMode> _loadThemeMode() async {
