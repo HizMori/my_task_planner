@@ -338,6 +338,55 @@ class DatabaseService {
     }
   }
 
+  // Передаёт все задачи пользователя в группе новому владельцу (creator) и удаляет его из назначенных.
+  Future<void> transferUserTasksAndRemoveAssignments({
+    required String groupId,
+    required String userId,
+    required String newCreatorId,
+  }) async {
+    final db = await database;
+    final now = DateTime.now();
+
+    try {
+      // 1. Найти все задачи, созданные пользователем в этой группе
+      final createdTasks = await db.query(
+        'tasks',
+        where: 'creator_id = ? AND group_id = ?',
+        whereArgs: [userId, groupId],
+      );
+
+      // Обновить их: передать создателю
+      for (final task in createdTasks) {
+        await db.update(
+          'tasks',
+          {
+            'creator_id': newCreatorId,
+            'updated_at': now.toIso8601String(),
+            'last_sync_at': null, // Чтобы синхронизировать изменения
+          },
+          where: 'id = ?',
+          whereArgs: [task['id']],
+        );
+      }
+
+      // 2. Удалить пользователя из назначенных во всех задачах группы 
+      await db.delete(
+        'task_assignees',
+        where: 'user_id = ? AND task_id IN (SELECT id FROM tasks WHERE group_id = ?)',
+        whereArgs: [userId, groupId],
+      );
+
+      // 3. Синхронизируем изменения с Supabase
+      await syncTasksToSupabase();
+      await syncTaskAssigneesToSupabase();
+
+      print('✅ Задачи пользователя $userId в группе $groupId обработаны при выходе.');
+    } catch (e) {
+      print('❌ Ошибка при передаче задач при выходе: $e');
+      rethrow;
+    }
+  }
+
   Future<void> syncMessagesToSupabase() async {
     try {
       final db = await database;

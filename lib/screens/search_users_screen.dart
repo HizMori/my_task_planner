@@ -2,16 +2,13 @@ import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../services/database_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
+import 'package:google_fonts/google_fonts.dart';
 
 class UserListTile extends StatelessWidget {
   final User user;
   final VoidCallback? onTap;
 
-  const UserListTile({
-    super.key,
-    required this.user,
-    this.onTap,
-  });
+  const UserListTile({super.key, required this.user, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -20,9 +17,7 @@ class UserListTile extends StatelessWidget {
         backgroundImage: user.avatarUrl != null
             ? NetworkImage(user.avatarUrl!)
             : null,
-        child: user.avatarUrl == null
-            ? Text(user.name[0].toUpperCase())
-            : null,
+        child: user.avatarUrl == null ? Text(user.name[0].toUpperCase()) : null,
       ),
       title: Text(user.name),
       subtitle: Text(user.email ?? 'Нет email'),
@@ -81,9 +76,9 @@ class _SearchUsersScreenState extends State<SearchUsersScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка поиска: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Ошибка поиска: $e')));
       setState(() {
         _searchResults = [];
         _isLoading = false;
@@ -104,6 +99,10 @@ class _SearchUsersScreenState extends State<SearchUsersScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, size: 24),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: const Text('Добавить участника'),
       ),
       body: Column(
@@ -141,32 +140,109 @@ class _SearchUsersScreenState extends State<SearchUsersScreen> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _searchController.text.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'Введите имя для поиска',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      )
-                    : _searchResults.isEmpty
-                        ? const Center(
-                            child: Text(
-                              'Ничего не найдено',
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                          )
-                        : ListView.builder(
-                            padding: EdgeInsets.zero,
-                            itemCount: _searchResults.length,
-                            itemBuilder: (context, index) {
-                              final user = _searchResults[index];
-                              return UserListTile(
-                                user: user,
-                                onTap: () {
-                                  Navigator.pop(context, user);
-                                },
+                ? const Center(
+                    child: Text(
+                      'Введите имя для поиска',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  )
+                : _searchResults.isEmpty
+                ? const Center(
+                    child: Text(
+                      'Ничего не найдено',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: EdgeInsets.zero,
+                    itemCount: _searchResults.length,
+                    itemBuilder: (context, index) {
+                      final user = _searchResults[index];
+                      return UserListTile(
+                        user: user,
+                        onTap: () async {
+                          final theme = Theme.of(context);
+                          final isDarkMode =
+                              theme.brightness == Brightness.dark;
+                          final textColor = isDarkMode
+                              ? Colors.white
+                              : Colors.black;
+                          final hintColor = isDarkMode
+                              ? Colors.grey[400]
+                              : Colors.grey;
+
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (context) {
+                              return AlertDialog(
+                                backgroundColor: theme.scaffoldBackgroundColor,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                title: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.person_add,
+                                      color: theme.primaryColor,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Добавить участника',
+                                      style: theme.textTheme.headlineSmall
+                                          ?.copyWith(color: textColor),
+                                    ),
+                                  ],
+                                ),
+                                content: Text(
+                                  'Вы точно хотите добавить ${user.name} в группу?',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: hintColor,
+                                  ),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, false),
+                                    child: Text(
+                                      'Отмена',
+                                      style: GoogleFonts.poppins(
+                                        color: theme.primaryColor,
+                                      ),
+                                    ),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, true),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: theme.primaryColor,
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'Добавить',
+                                      style: GoogleFonts.poppins(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               );
                             },
-                          ),
+                          );
+
+                          if (confirm == true) {
+                            Navigator.pop(context, user);
+                          }
+                        },
+                      );
+                    },
+                  ),
           ),
         ],
       ),

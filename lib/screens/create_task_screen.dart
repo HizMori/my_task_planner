@@ -7,6 +7,7 @@ import '../models/user.dart';
 import 'package:collection/collection.dart';
 import '../widgets/user_avatar.dart';
 import '../models/task_assignee.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class CreateTaskScreen extends StatefulWidget {
   // Добавляем возможность передать группу по умолчанию
@@ -470,6 +471,10 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final textColor = isDarkMode ? Colors.white : Colors.black;
+    final hintColor = isDarkMode ? Colors.grey[400] : Colors.black;
+
     return AppBar(
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_ios, size: 24),
@@ -499,23 +504,70 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
               if (value == 'delete') {
                 final confirmed = await showDialog<bool>(
                   context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Удалить задачу?'),
-                    backgroundColor: theme.scaffoldBackgroundColor,
-                    content: const Text('Эта задача будет безвозвратно удалена.'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text('Отмена'),
+                  builder: (context) {
+                    return AlertDialog(
+                      backgroundColor: theme.scaffoldBackgroundColor,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      title: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.warning_amber_rounded, color: Colors.red, size: 48),
+                          const SizedBox(width: 20),
+                          Text(
+                            'Удалить задачу',
+                            style: theme.textTheme.headlineSmall?.copyWith(color: textColor),
+                          ),
+                        ],
                       ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        child: const Text('Удалить', style: TextStyle(color: Colors.red)),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Вы удалите задачу.',
+                            style: theme.textTheme.bodyMedium?.copyWith(color: hintColor),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                );
+                      actions: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            ElevatedButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.grey[300],
+                                foregroundColor: Colors.black,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
 
+                              ),
+                              child: Text(
+                                'Нет, сохранить',
+                                style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            ElevatedButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              ),
+                              child: Text(
+                                'Да, удалить',
+                                style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        )
+                      ],
+                    );
+                  },
+                );
                 if (confirmed == true) {
                   await _databaseService.deleteTask(widget.task!.id);
                   if (context.mounted) {

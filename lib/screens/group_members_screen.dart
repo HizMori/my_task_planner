@@ -6,6 +6,7 @@ import 'search_users_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import '../models/group_member.dart';
 import '../widgets/user_avatar.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class GroupMembersScreen extends StatefulWidget {
   final Group group;
@@ -53,7 +54,7 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
           .eq('group_id', _groupId)
           .eq('user_id', uid)
           .limit(1);
-      
+
       if ((membershipCheck as List).isEmpty) {
         throw Exception("Вы не состоите в этой группе");
       }
@@ -64,7 +65,9 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
           .select('user_id')
           .eq('group_id', _groupId);
 
-      final userIds = (membersData as List).map((m) => m['user_id'] as String).toList();
+      final userIds = (membersData as List)
+          .map((m) => m['user_id'] as String)
+          .toList();
 
       // Загружаем профили пользователей
       final usersData = await Supabase.instance.client
@@ -83,21 +86,21 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка загрузки участников: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Ошибка загрузки участников: $e')));
     }
   }
 
   Future<void> _addMember() async {
     final Set<String> alreadyAddedIds = _members.map((user) => user.id).toSet();
 
-    final selectedUser = await Navigator.push<User?>(context,
-        MaterialPageRoute(
-          builder: (context) => SearchUsersScreen(
-            alreadyAddedIds: alreadyAddedIds,
-          ),
-        ),
+    final selectedUser = await Navigator.push<User?>(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            SearchUsersScreen(alreadyAddedIds: alreadyAddedIds),
+      ),
     );
 
     if (selectedUser == null) return;
@@ -120,7 +123,9 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
       );
 
       // Добавляем в Supabase
-      await Supabase.instance.client.from('group_members').insert(newMember.toMap());
+      await Supabase.instance.client
+          .from('group_members')
+          .insert(newMember.toMap());
 
       // Добавляем в локальную БД
       await _db.insertGroupMember(newMember); // ← новый метод
@@ -128,55 +133,109 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
       // Обновляем UI
       await _loadData(); // ← обновляем данные после добавления
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('${selectedUser.name} добавлен(а) в группу')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${selectedUser.name} добавлен(а) в группу')),
+      );
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Не удалось добавить: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Не удалось добавить: $e')));
     }
   }
 
-  void _removeMember(User user) {
+  Future<void> _removeMember(User user) async {
     if (user.id == _currentUserId) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Нельзя удалить себя из группы')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Нельзя удалить себя из группы')),
+      );
       return;
     }
 
-    showDialog(
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final textColor = isDarkMode ? Colors.white : Colors.black;
+    final hintColor = isDarkMode ? Colors.grey[400] : Colors.black;
+
+    final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Удалить участника'),
-        content: Text('Удалить ${user.name} из группы?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                await Supabase.instance.client
-                    .from('group_members')
-                    .delete()
-                    .match({'group_id': _groupId, 'user_id': user.id});
-                
-                await _db.deleteGroupMemberLocally(_groupId, user.id);
-
-                setState(() {
-                  _members.remove(user);
-                });
-
-                ScaffoldMessenger.of(context)
-                    .showSnackBar(SnackBar(content: Text('${user.name} удалён(а) из группы')));
-              } catch (e) {
-                ScaffoldMessenger.of(context)
-                    .showSnackBar(SnackBar(content: Text('Ошибка удаления: $e')));
-              }
-            },
-            child: const Text('Удалить'),
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: theme.scaffoldBackgroundColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
-        ],
-      ),
+          title: Row(
+            children: [
+              Text(
+                'Удалить участника',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  color: textColor,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Вы точно хотите удалить ${user.name} из группы?',
+                style: theme.textTheme.bodyMedium?.copyWith(color: hintColor),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(
+                'Нет, оставить',
+                style: GoogleFonts.poppins(color: theme.primaryColor),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+              ),
+              child: Text(
+                'Да, удалить',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
     );
+
+    if (confirm != true) return;
+
+    try {
+      await Supabase.instance.client.from('group_members').delete().match({
+        'group_id': _groupId,
+        'user_id': user.id,
+      });
+
+      await _db.deleteGroupMemberLocally(_groupId, user.id);
+
+      setState(() {
+        _members.remove(user);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${user.name} удалён(а) из группы')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Ошибка удаления: $e')));
+    }
   }
 
   @override
@@ -195,13 +254,13 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                 child: Row(
                   children: [
-                    Text(
-                      'Участники',
-                      style: theme.textTheme.headlineSmall,
-                    ),
+                    Text('Участники', style: theme.textTheme.headlineSmall),
                     const Spacer(),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF7e61f3).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(20),
@@ -226,72 +285,88 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : _members.isEmpty
-                        ? const Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.people_alt_outlined, size: 60, color: Colors.grey),
-                                SizedBox(height: 16),
-                                Text(
-                                  'Нет участников',
-                                  style: TextStyle(fontSize: 16, color: Colors.grey),
-                                ),
-                              ],
+                    ? const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.people_alt_outlined,
+                              size: 60,
+                              color: Colors.grey,
                             ),
-                          )
-                        : ListView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            itemCount: _members.length,
-                            itemBuilder: (context, index) {
-                              final user = _members[index];
-                              final isCreator = user.id == widget.group.creatorId;
-                              final isMe = user.id == _currentUserId;
-                              final isDarkMode = theme.brightness == Brightness.dark;
-                              final cardColor = isDarkMode ? Colors.grey[800] : Colors.white;
+                            SizedBox(height: 16),
+                            Text(
+                              'Нет участников',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: _members.length,
+                        itemBuilder: (context, index) {
+                          final user = _members[index];
+                          final isCreator = user.id == widget.group.creatorId;
+                          final isMe = user.id == _currentUserId;
+                          final isDarkMode =
+                              theme.brightness == Brightness.dark;
+                          final cardColor = isDarkMode
+                              ? Colors.grey[800]
+                              : Colors.white;
 
-                              return Card(
-                                color: cardColor,
-                                margin: const EdgeInsets.only(bottom: 8),
-                                elevation: isDarkMode ? 2 : 1,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  side: BorderSide(
-                                    color: Colors.grey.withOpacity(0.1),
-                                  ),
-                                ),
-                                child: ListTile(
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
-                                  leading: UserAvatar(user: user, radius: 20),
-                                  title: Text(
-                                    user.name,
-                                    style: isCreator
-                                        ? theme.textTheme.bodyMedium?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                          )
-                                        : null,
-                                  ),
-                                  subtitle: Wrap(
-                                    spacing: 8,
-                                    children: [
-                                      if (isCreator)
-                                        _buildLabel('Создатель', const Color(0xFF7e61f3)),
-                                      if (isMe)
-                                        _buildLabel('Вы', Colors.blue),
-                                    ],
-                                  ),
-                                  trailing: isMe || isCreator
-                                      ? null
-                                      : IconButton(
-                                          icon: const Icon(Icons.close, size: 20, color: Colors.grey),
-                                          onPressed: () => _removeMember(user),
-                                        ),
-                                ),
-                              );
-                            },
-                          ),
+                          return Card(
+                            color: cardColor,
+                            margin: const EdgeInsets.only(bottom: 8),
+                            elevation: isDarkMode ? 2 : 1,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              side: BorderSide(
+                                color: Colors.grey.withOpacity(0.1),
+                              ),
+                            ),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              leading: UserAvatar(user: user, radius: 20),
+                              title: Text(
+                                user.name,
+                                style: isCreator
+                                    ? theme.textTheme.bodyMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      )
+                                    : null,
+                              ),
+                              subtitle: Wrap(
+                                spacing: 8,
+                                children: [
+                                  if (isCreator)
+                                    _buildLabel(
+                                      'Создатель',
+                                      const Color(0xFF7e61f3),
+                                    ),
+                                  if (isMe) _buildLabel('Вы', Colors.blue),
+                                ],
+                              ),
+                              trailing: isMe || isCreator
+                                  ? null
+                                  : IconButton(
+                                      icon: const Icon(
+                                        Icons.close,
+                                        size: 20,
+                                        color: Colors.grey,
+                                      ),
+                                      onPressed: () => _removeMember(user),
+                                    ),
+                            ),
+                          );
+                        },
+                      ),
               ),
             ],
           ),
@@ -331,7 +406,11 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
       ),
       child: Text(
         text,
-        style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500),
+        style: TextStyle(
+          fontSize: 12,
+          color: color,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }

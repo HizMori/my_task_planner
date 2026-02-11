@@ -65,14 +65,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context) {
         return AlertDialog(
           backgroundColor: theme.scaffoldBackgroundColor,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           title: Row(
             children: [
               Icon(Icons.lock, color: theme.primaryColor),
               const SizedBox(width: 8),
               Text(
                 'Установите PIN',
-                style: theme.textTheme.headlineSmall?.copyWith(color: textColor),
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  color: textColor,
+                ),
               ),
             ],
           ),
@@ -101,7 +105,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     prefixIcon: Icon(Icons.pin, color: theme.primaryColor),
                     labelText: '4-значный PIN',
                     labelStyle: GoogleFonts.poppins(color: hintColor),
-                    floatingLabelStyle: GoogleFonts.poppins(color: theme.primaryColor),
+                    floatingLabelStyle: GoogleFonts.poppins(
+                      color: theme.primaryColor,
+                    ),
                     filled: true,
                     fillColor: fieldFillColor,
                     counterText: '',
@@ -111,7 +117,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: theme.primaryColor, width: 1.5),
+                      borderSide: BorderSide(
+                        color: theme.primaryColor,
+                        width: 1.5,
+                      ),
                     ),
                   ),
                   style: GoogleFonts.poppins(
@@ -137,10 +146,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: TextField(
                   controller: hintController,
                   decoration: InputDecoration(
-                    prefixIcon: Icon(Icons.help_outline, color: theme.primaryColor),
+                    prefixIcon: Icon(
+                      Icons.help_outline,
+                      color: theme.primaryColor,
+                    ),
                     labelText: 'Подсказка',
                     labelStyle: GoogleFonts.poppins(color: hintColor),
-                    floatingLabelStyle: GoogleFonts.poppins(color: theme.primaryColor),
+                    floatingLabelStyle: GoogleFonts.poppins(
+                      color: theme.primaryColor,
+                    ),
                     filled: true,
                     fillColor: fieldFillColor,
                     border: OutlineInputBorder(
@@ -149,7 +163,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: theme.primaryColor, width: 1.5),
+                      borderSide: BorderSide(
+                        color: theme.primaryColor,
+                        width: 1.5,
+                      ),
                     ),
                   ),
                   style: GoogleFonts.poppins(color: textColor),
@@ -167,7 +184,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onPressed: () => Navigator.pop(context),
               child: Text(
                 'Отмена',
-                style: GoogleFonts.poppins(color: hintColor),
+                style: GoogleFonts.poppins(color: theme.primaryColor),
               ),
             ),
             ElevatedButton(
@@ -187,7 +204,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: theme.primaryColor,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: Text(
                 'OK',
@@ -208,7 +227,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Сохраняем данные
     await prefs.setString(LockScreen.PREFS_KEY_PIN_HASH, _hash(result['pin']!));
     await prefs.setString(LockScreen.PREFS_KEY_HINT, result['hint']!);
-    await prefs.setString(LockScreen.PREFS_KEY_RECOVERY_CODE_HASH, _hash(recoveryCode));
+    await prefs.setString(
+      LockScreen.PREFS_KEY_RECOVERY_CODE_HASH,
+      _hash(recoveryCode),
+    );
     await prefs.setBool(LockScreen.PREFS_KEY_ENABLED, true);
 
     // Показываем резервный код один раз
@@ -218,7 +240,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _isLockEnabled = true;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Блокировка включена')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Блокировка включена')));
   }
 
   String _generateRecoveryCode() {
@@ -284,7 +308,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _isLockEnabled = false;
       });
     }
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Блокировка отключена')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Блокировка отключена')));
   }
 
   Future<void> _loadUserData() async {
@@ -309,7 +335,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // Сохраним в локальную БД (опционально — для оффлайна)
       await DatabaseService.instance.updateUser(user);
 
-      AppSettings? settings = await DatabaseService.instance.readAppSettings(userId);
+      AppSettings? settings = await DatabaseService.instance.readAppSettings(
+        userId,
+      );
       if (settings == null) {
         settings = AppSettings(
           userId: userId,
@@ -331,12 +359,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     } on Exception catch (e) {
       print('Ошибка загрузки пользователя из Supabase: $e');
-      
+
       // 🔽 Резерв: загрузка из локальной БД
       final user = await DatabaseService.instance.readUserById(userId);
       print('🔽 Используем пользователя из локальной БД: ${user?.avatarUrl}');
 
-      AppSettings? settings = await DatabaseService.instance.readAppSettings(userId);
+      AppSettings? settings = await DatabaseService.instance.readAppSettings(
+        userId,
+      );
       if (settings == null) {
         settings = AppSettings(
           userId: userId,
@@ -371,7 +401,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
       compressQuality: 90,
       uiSettings: [
-        AndroidUiSettings(toolbarTitle: 'Обрезка', toolbarColor: Colors.deepPurple),
+        AndroidUiSettings(
+          toolbarTitle: 'Обрезка',
+          toolbarColor: Colors.deepPurple,
+        ),
         IOSUiSettings(title: 'Обрезка'),
       ],
     );
@@ -389,18 +422,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     try {
       // 1. Загрузка в Storage
-      await supabase.storage.from('avatars').upload(
-            fileName,
-            file,
-            fileOptions: const FileOptions(upsert: true),
-          );
+      await supabase.storage
+          .from('avatars')
+          .upload(fileName, file, fileOptions: const FileOptions(upsert: true));
 
       // 2. Получение публичного URL
       final imageUrl = supabase.storage.from('avatars').getPublicUrl(fileName);
       print('Uploaded avatar URL: $imageUrl');
 
       // 3. Обновление в Supabase
-      await supabase.from('users').update({'avatar_url': imageUrl}).eq('id', userId);
+      await supabase
+          .from('users')
+          .update({'avatar_url': imageUrl})
+          .eq('id', userId);
 
       // 4. Обновление в локальной БД
       final updatedUser = _user!.copyWith(avatarUrl: imageUrl);
@@ -413,13 +447,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         });
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Аватар успешно обновлён!')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Аватар успешно обновлён!')));
     } on Exception catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка загрузки: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Ошибка загрузки: $e')));
     }
   }
 
@@ -451,36 +485,96 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка удаления: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Ошибка удаления: $e')));
     }
   }
 
   Future<void> _showDeleteAccountDialog() async {
     final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final textColor = isDarkMode ? Colors.white : Colors.black;
+    final hintColor = isDarkMode ? Colors.grey[400] : Colors.black;
+
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Удалить аккаунт?'),
-        backgroundColor: theme.scaffoldBackgroundColor,
-        content: const Text(
-          'Это действие нельзя отменить. Все ваши данные будут удалены.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Отмена'),
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: theme.scaffoldBackgroundColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'Удалить',
-              style: TextStyle(color: Colors.red),
+          title: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.red, size: 48),
+              const SizedBox(width: 20),
+              Text(
+                'Удалить аккаунт',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  color: textColor,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                'Вы удалите свой аккаунт.',
+                style: theme.textTheme.bodyMedium?.copyWith(color: hintColor),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+          actions: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey[300],
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                  child: Text(
+                    'Нет, сохранить',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                  child: Text(
+                    'Да, удалить',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
+          ],
+        );
+      },
     );
 
     if (confirmed != true) return;
@@ -491,36 +585,85 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   String _getThemeLabel(String? theme) {
     switch (theme) {
-      case 'light': return 'Светлая';
-      case 'dark': return 'Тёмная';
-      default: return 'Системная';
+      case 'light':
+        return 'Светлая';
+      case 'dark':
+        return 'Тёмная';
+      default:
+        return 'Системная';
     }
   }
 
   Future<void> _showThemeBottomSheet() async {
     final currentTheme = (_settings?.theme ?? 'system');
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final textColor = isDarkMode ? Colors.white : Colors.black;
+    final hintColor = isDarkMode ? Colors.grey[400] : Colors.grey;
+
     final result = await showModalBottomSheet<String>(
       context: context,
-      builder: (context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            title: const Text('Системная'),
-            trailing: currentTheme == 'system' ? const Icon(Icons.check) : null,
-            onTap: () => Navigator.pop(context, 'system'),
-          ),
-          ListTile(
-            title: const Text('Светлая'),
-            trailing: currentTheme == 'light' ? const Icon(Icons.check) : null,
-            onTap: () => Navigator.pop(context, 'light'),
-          ),
-          ListTile(
-            title: const Text('Тёмная'),
-            trailing: currentTheme == 'dark' ? const Icon(Icons.check) : null,
-            onTap: () => Navigator.pop(context, 'dark'),
-          ),
-        ],
+      backgroundColor: theme.scaffoldBackgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.palette, color: theme.primaryColor),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Выберите тему',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      color: textColor,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: Icon(Icons.light_mode, color: hintColor),
+                title: Text(
+                  'Светлая',
+                  style: GoogleFonts.poppins(color: textColor),
+                ),
+                trailing: currentTheme == 'light'
+                    ? const Icon(Icons.check)
+                    : null,
+                onTap: () => Navigator.pop(context, 'light'),
+              ),
+              ListTile(
+                leading: Icon(Icons.dark_mode, color: hintColor),
+                title: Text(
+                  'Тёмная',
+                  style: GoogleFonts.poppins(color: textColor),
+                ),
+                trailing: currentTheme == 'dark'
+                    ? const Icon(Icons.check)
+                    : null,
+                onTap: () => Navigator.pop(context, 'dark'),
+              ),
+              ListTile(
+                leading: Icon(Icons.brightness_auto, color: hintColor),
+                title: Text(
+                  'Системная',
+                  style: GoogleFonts.poppins(color: textColor),
+                ),
+                trailing: currentTheme == 'system'
+                    ? const Icon(Icons.check)
+                    : null,
+                onTap: () => Navigator.pop(context, 'system'),
+              ),
+            ],
+          ),
+        );
+      },
     );
 
     if (result == null || result == currentTheme) return;
@@ -553,14 +696,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDarkMode = theme.brightness == Brightness.dark;
-    final inactiveColor = isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
 
     if (_isLoading) {
       return Scaffold(
         appBar: AppBar(
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios, size: 24), 
+            icon: const Icon(Icons.arrow_back_ios, size: 24),
             onPressed: () => Navigator.of(context).pop(),
           ),
         ),
@@ -571,21 +712,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, size: 24), 
+          icon: const Icon(Icons.arrow_back_ios, size: 24),
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
           // Кнопка "Редактировать"
           IconButton(
-            icon: Icon(
-              Icons.edit, 
-              size: 24,
-              color: inactiveColor,
-              ),
+            icon: Icon(Icons.edit, size: 24),
             onPressed: () async {
               final result = await Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const EditProfileScreen()),
+                MaterialPageRoute(
+                  builder: (context) => const EditProfileScreen(),
+                ),
               );
               if (result is User) {
                 setState(() {
@@ -617,15 +756,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ],
             // offset сдвигает меню вниз и влево
-            offset: const Offset(-10, 40), // x: -10 (чуть левее), y: 40 (вниз от AppBar)
+            offset: const Offset(
+              -10,
+              40,
+            ), // x: -10 (чуть левее), y: 40 (вниз от AppBar)
             elevation: 4,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
             ),
-            icon: Icon(
-              Icons.more_vert,
-              color: inactiveColor
-              ),
+            icon: Icon(Icons.more_vert),
             color: theme.scaffoldBackgroundColor,
           ),
           SizedBox(width: 8),
@@ -647,7 +786,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       CircleAvatar(
                         radius: 50,
-                        backgroundColor: const Color(0xFF7e61f3).withOpacity(0.15),
+                        backgroundColor: const Color(
+                          0xFF7e61f3,
+                        ).withOpacity(0.15),
                         child: _user?.avatarUrl != null
                             ? ClipOval(
                                 child: CachedNetworkImage(
@@ -656,24 +797,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   width: 100,
                                   height: 100,
                                   placeholder: (context, url) => Container(
-                                    color: const Color(0xFF7e61f3).withOpacity(0.15),
-                                    child: const CircularProgressIndicator(strokeWidth: 2),
-                                  ),
-                                  errorWidget: (context, url, error) => Container(
-                                    color: const Color(0xFF7e61f3).withOpacity(0.15),
-                                    child: Text(
-                                      _user!.name.isNotEmpty ? _user!.name[0].toUpperCase() : '?',
-                                      style: const TextStyle(
-                                        color: Color(0xFF7e61f3),
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 24,
-                                      ),
+                                    color: const Color(
+                                      0xFF7e61f3,
+                                    ).withOpacity(0.15),
+                                    child: const CircularProgressIndicator(
+                                      strokeWidth: 2,
                                     ),
                                   ),
+                                  errorWidget: (context, url, error) =>
+                                      Container(
+                                        color: const Color(
+                                          0xFF7e61f3,
+                                        ).withOpacity(0.15),
+                                        child: Text(
+                                          _user!.name.isNotEmpty
+                                              ? _user!.name[0].toUpperCase()
+                                              : '?',
+                                          style: const TextStyle(
+                                            color: Color(0xFF7e61f3),
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 24,
+                                          ),
+                                        ),
+                                      ),
                                 ),
                               )
                             : Text(
-                                _user?.name.isNotEmpty == true ? _user!.name[0].toUpperCase() : '?',
+                                _user?.name.isNotEmpty == true
+                                    ? _user!.name[0].toUpperCase()
+                                    : '?',
                                 style: const TextStyle(
                                   color: Color(0xFF7e61f3),
                                   fontWeight: FontWeight.bold,
@@ -690,7 +842,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           backgroundColor: Colors.blue,
                           child: IconButton(
                             padding: EdgeInsets.zero,
-                            icon: const Icon(Icons.camera_alt, size: 20, color: Colors.white),
+                            icon: const Icon(
+                              Icons.camera_alt,
+                              size: 20,
+                              color: Colors.white,
+                            ),
                             onPressed: _pickAndCropImage,
                           ),
                         ),
@@ -700,7 +856,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 16),
                   Text(
                     _user?.name ?? 'Пользователь',
-                    style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w600),
+                    style: theme.textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -708,20 +866,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 32),
             ListTile(
-              leading: Icon(
-                Icons.palette,
-                color: inactiveColor,
-                ),
+              leading: Icon(Icons.palette),
               title: const Text('Тема'),
               subtitle: Text(_getThemeLabel(_settings?.theme)),
               onTap: _showThemeBottomSheet,
             ),
             const SizedBox(height: 20),
             ListTile(
-              leading: Icon(
-                Icons.lock,
-                color: inactiveColor,
-                ),
+              leading: Icon(Icons.lock),
               title: const Text('Блокировка приложения'),
               subtitle: Text(_isLockEnabled ? 'Включена' : 'Выключена'),
               onTap: () {

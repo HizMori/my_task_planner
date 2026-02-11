@@ -73,28 +73,75 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen>
 
   Future<void> _deleteGroup() async {
     final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final textColor = isDarkMode ? Colors.white : Colors.black;
+    final hintColor = isDarkMode ? Colors.grey[400] : Colors.black;
+    
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Удалить группу?'),
-        backgroundColor: theme.scaffoldBackgroundColor,
-        content: const Text(
-          'Все задачи, сообщения и участники этой группы будут безвозвратно удалены.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Отмена'),
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: theme.scaffoldBackgroundColor,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.red, size: 48),
+              const SizedBox(width: 20),
+              Text(
+                'Удалить группу',
+                style: theme.textTheme.headlineSmall?.copyWith(color: textColor),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'Удалить',
-              style: TextStyle(color: Colors.red),
-            ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                'Все задачи, сообщения и участники этой группы будут безвозвратно удалены.',
+                style: theme.textTheme.bodyMedium?.copyWith(color: hintColor),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
-        ],
-      ),
+          actions: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey[300],
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+
+                  ),
+                  child: Text(
+                    'Нет, сохранить',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                  child: Text(
+                    'Да, удалить',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            )
+          ],
+        );
+      },
     );
 
     if (confirmed != true) return;
@@ -137,6 +184,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isCreator = _currentUserId == _group.creatorId;
+    
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -146,15 +194,16 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen>
         title: Text(_group.name),
         centerTitle: true,
         actions: [
-          // Кнопка "ещё" с меню только для создателя
+          // Кнопка "ещё" или "выйти" в зависимости от роли
           if (isCreator)
+            // Меню для создателя: Изменить / Удалить
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert),
               onSelected: (value) {
-                if (value == 'delete') {
-                  _deleteGroup();
-                } else if (value == 'edit') {
+                if (value == 'edit') {
                   _editGroup();
+                } else if (value == 'delete') {
+                  _deleteGroup();
                 }
               },
               itemBuilder: (context) => [
@@ -166,10 +215,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen>
                       SizedBox(width: 10),
                       Text(
                         'Изменить группу',
-                        style: TextStyle(
-                          color: Colors.blue,
-                          fontSize: 14,
-                        ),
+                        style: TextStyle(color: Colors.blue, fontSize: 14),
                       ),
                     ],
                   ),
@@ -182,22 +228,23 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen>
                       SizedBox(width: 10),
                       Text(
                         'Удалить группу',
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontSize: 14,
-                        ),
+                        style: TextStyle(color: Colors.red, fontSize: 14),
                       ),
                     ],
                   ),
                 ),
               ],
-              // offset сдвигает меню вниз и влево
-              offset: const Offset(-10, 40), // x: -10 (чуть левее), y: 40 (вниз от AppBar)
+              offset: const Offset(-10, 40),
               elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               color: theme.scaffoldBackgroundColor,
+            )
+          else
+            // Кнопка "Выйти из группы" для участников
+            IconButton(
+              icon: const Icon(Icons.exit_to_app, color: Colors.red),
+              tooltip: 'Выйти из группы',
+              onPressed: _leaveGroup,
             ),
           const SizedBox(width: 8),
         ],
@@ -237,5 +284,81 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen>
         ],
       ),
     );
+  }
+
+  Future<void> _leaveGroup() async {
+    final theme = Theme.of(context);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Выйти из группы?'),
+        backgroundColor: theme.scaffoldBackgroundColor,
+        content: const Text(
+          'Вы действительно хотите выйти из этой группы? Вы больше не будете видеть её задачи и чат.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Выйти',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final groupId = _group.id;
+      final userId = _currentUserId!;
+      final creatorId = _group.creatorId;
+
+      // Выполняем логику передачи задач и удаления назначений
+      await _db.transferUserTasksAndRemoveAssignments(
+        groupId: groupId,
+        userId: userId,
+        newCreatorId: creatorId,
+      );
+
+      // 1. Удаляем из Supabase
+      await Supabase.instance.client
+          .from('group_members')
+          .delete()
+          .match({'group_id': groupId, 'user_id': userId});
+
+      // 2. Удаляем из локальной БД
+      await _db.deleteGroupMemberLocally(groupId, userId);
+
+      // 3. Уведомление
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Вы вышли из группы')),
+        );
+        Navigator.pop(context, true); // Возвращаем true — можно обновить список групп
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка при выходе: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 }

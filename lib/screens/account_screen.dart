@@ -6,6 +6,7 @@ import '../models/user.dart'; // Модель
 import 'welcome_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import '../widgets/user_avatar.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
@@ -44,20 +45,49 @@ class _AccountScreenState extends State<AccountScreen> {
   // Метод для выхода из аккаунта
   Future<void> _logout() async {
     final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final textColor = isDarkMode ? Colors.white : Colors.black;
+    final hintColor = isDarkMode ? Colors.grey[400] : Colors.grey;
+
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Выход'),
         backgroundColor: theme.scaffoldBackgroundColor,
-        content: const Text('Вы уверены, что хотите выйти?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(
+          children: [
+            Icon(Icons.logout, color: Colors.red),
+            const SizedBox(width: 8),
+            Text(
+              'Выход',
+              style: theme.textTheme.headlineSmall?.copyWith(color: textColor),
+            ),
+          ],
+        ),
+        content: Text(
+          'Вы уверены, что хотите выйти?',
+          style: theme.textTheme.bodyMedium?.copyWith(color: hintColor),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Отмена'),
+            child: Text(
+              'Отмена',
+              style: GoogleFonts.poppins(color: theme.primaryColor),
+            ),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Выйти'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+            child: Text(
+              'Выйти',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),

@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter/services.dart';
 import '../widgets/user_avatar.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class GroupChatScreen extends StatefulWidget {
   // Передаём ID группы — важно!
@@ -20,16 +21,17 @@ class GroupChatScreen extends StatefulWidget {
   State<GroupChatScreen> createState() => _GroupChatScreenState();
 }
 
-class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderStateMixin{
+class _GroupChatScreenState extends State<GroupChatScreen>
+    with TickerProviderStateMixin {
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final DatabaseService _db = DatabaseService.instance;
   final AuthService _auth = AuthService.instance;
 
   final Map<String, Message> _messageMap = {};
-  List<Message> get _messages => _messageMap.values.toList()
-    ..sort((a, b) => a.sentAt.compareTo(b.sentAt));
-  
+  List<Message> get _messages =>
+      _messageMap.values.toList()..sort((a, b) => a.sentAt.compareTo(b.sentAt));
+
   String? _currentUserId;
   String? _currentUserName;
   bool _isLoading = true;
@@ -125,139 +127,148 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
 
   void _subscribeToMessages() {
     _subscription = Supabase.instance.client
-      .from('messages')
-      .stream(primaryKey: ['id'])
-      .eq('group_id', widget.groupId)
-      .listen((List<Map<String, dynamic>> payload) async {
-        for (final change in payload) {
-          print('📡 Получено через Realtime: $change');
+        .from('messages')
+        .stream(primaryKey: ['id'])
+        .eq('group_id', widget.groupId)
+        .listen(
+          (List<Map<String, dynamic>> payload) async {
+            for (final change in payload) {
+              print('📡 Получено через Realtime: $change');
 
-          // DELETE
-          if (change['eventType'] == 'DELETE' && change.containsKey('old')) {
-            final String? id = change['old']['id'] as String?;
-            if (id == null) continue;
+              // DELETE
+              if (change['eventType'] == 'DELETE' &&
+                  change.containsKey('old')) {
+                final String? id = change['old']['id'] as String?;
+                if (id == null) continue;
 
-            await _db.deleteMessage(id);
-            if (mounted) {
-              setState(() {
-                _messageMap.remove(id);
-              });
-            }
-            continue;
-          }
-
-          // UPDATE
-          if (change['eventType'] == 'UPDATE' && change.containsKey('new')) {
-            final data = change['new'] as Map<String, dynamic>;
-            final String? id = data['id'] as String?;
-            if (id == null) continue;
-
-            final existing = _messageMap[id];
-            if (existing != null) {
-              final updatedMessage = existing.copyWith(
-                content: data['content'],
-                isEdited: true,
-                senderName: data['sender_name'] ?? existing.senderName,
-              );
-
-              await _db.updateMessage(updatedMessage);
-
-              if (mounted) {
-                setState(() {
-                  _messageMap[id] = updatedMessage;
-                });
-              }
-            }
-            continue;
-          }
-
-          Map<String, dynamic>? data;
-          // INSERT (или initial)
-          // Проверяем: если есть 'new' → это нормальный INSERT/UPDATE
-          if (change.containsKey('new')) {
-            data = change['new'] as Map<String, dynamic>;
-          } 
-          // Иначе: возможно, это "initial data" — сам объект
-          else if (change.containsKey('id') && change.containsKey('content')) {
-            data = change; // ← используем напрямую
-          } else {
-            print('🔴 Непонятный формат: $change');
-            continue;
-          }
-
-          final id = data['id'] as String?;
-          if (id == null) continue;
-
-          final String senderId = data['sender_id'] as String? ?? 'unknown';
-          final String content = data['content'] as String;
-          final String sentAtStr = data['sent_at'] as String;
-
-          late DateTime sentAt;
-          try {
-            sentAt = DateTime.parse(sentAtStr);
-          } catch (e) {
-            print('🔴 Не удалось разобрать время: $sentAtStr');
-            continue;
-          }
-
-          if (senderId != 'unknown' && data.containsKey('sender_name')) {
-            final String? name = data['sender_name'] as String?;
-            final cachedUser = _userCache[senderId];
-
-            // Если пользователя ещё нет или имя изменилось — добавим/обновим
-            if (cachedUser == null || cachedUser.name != name) {
-              _userCache[senderId] = User(
-                id: senderId,
-                name: name ?? 'Пользователь',
-                avatarUrl: null, // будет загружен позже через UserAvatar
-                createdAt: sentAt,
-                updatedAt: sentAt,
-              );
-            }
-          }
-
-          // Получаем имя
-          String? senderName = data['sender_name'] as String?;
-
-          if (senderName == null || senderName.isEmpty) {
-            senderName = _userNames[senderId];
-          }
-
-          if (senderName == null || senderName.isEmpty) {
-            final user = await _db.readUserById(senderId);
-            senderName = user?.name;
-          }
-
-          senderName = senderName ?? 'Пользователь';
-          _userNames[senderId] = senderName;
-
-          final message = Message(
-            id: id,
-            groupId: widget.groupId,
-            senderId: senderId,
-            content: content,
-            sentAt: sentAt,
-            senderName: senderName,
-            isEdited: data['is_edited'] == true,
-          );
-
-          await _db.createMessage(message).then((_) {
-            if (mounted) {
-              setState(() {
-                if (_messageMap.containsKey(message.id)) {
-                  print('🟡 Обновляем сообщение: ${message.id}');
+                await _db.deleteMessage(id);
+                if (mounted) {
+                  setState(() {
+                    _messageMap.remove(id);
+                  });
                 }
-                _messageMap[message.id] = message;
-              });
+                continue;
+              }
+
+              // UPDATE
+              if (change['eventType'] == 'UPDATE' &&
+                  change.containsKey('new')) {
+                final data = change['new'] as Map<String, dynamic>;
+                final String? id = data['id'] as String?;
+                if (id == null) continue;
+
+                final existing = _messageMap[id];
+                if (existing != null) {
+                  final updatedMessage = existing.copyWith(
+                    content: data['content'],
+                    isEdited: true,
+                    senderName: data['sender_name'] ?? existing.senderName,
+                  );
+
+                  await _db.updateMessage(updatedMessage);
+
+                  if (mounted) {
+                    setState(() {
+                      _messageMap[id] = updatedMessage;
+                    });
+                  }
+                }
+                continue;
+              }
+
+              Map<String, dynamic>? data;
+              // INSERT (или initial)
+              // Проверяем: если есть 'new' → это нормальный INSERT/UPDATE
+              if (change.containsKey('new')) {
+                data = change['new'] as Map<String, dynamic>;
+              }
+              // Иначе: возможно, это "initial data" — сам объект
+              else if (change.containsKey('id') &&
+                  change.containsKey('content')) {
+                data = change; // ← используем напрямую
+              } else {
+                print('🔴 Непонятный формат: $change');
+                continue;
+              }
+
+              final id = data['id'] as String?;
+              if (id == null) continue;
+
+              final String senderId = data['sender_id'] as String? ?? 'unknown';
+              final String content = data['content'] as String;
+              final String sentAtStr = data['sent_at'] as String;
+
+              late DateTime sentAt;
+              try {
+                sentAt = DateTime.parse(sentAtStr);
+              } catch (e) {
+                print('🔴 Не удалось разобрать время: $sentAtStr');
+                continue;
+              }
+
+              if (senderId != 'unknown' && data.containsKey('sender_name')) {
+                final String? name = data['sender_name'] as String?;
+                final cachedUser = _userCache[senderId];
+
+                // Если пользователя ещё нет или имя изменилось — добавим/обновим
+                if (cachedUser == null || cachedUser.name != name) {
+                  _userCache[senderId] = User(
+                    id: senderId,
+                    name: name ?? 'Пользователь',
+                    avatarUrl: null, // будет загружен позже через UserAvatar
+                    createdAt: sentAt,
+                    updatedAt: sentAt,
+                  );
+                }
+              }
+
+              // Получаем имя
+              String? senderName = data['sender_name'] as String?;
+
+              if (senderName == null || senderName.isEmpty) {
+                senderName = _userNames[senderId];
+              }
+
+              if (senderName == null || senderName.isEmpty) {
+                final user = await _db.readUserById(senderId);
+                senderName = user?.name;
+              }
+
+              senderName = senderName ?? 'Пользователь';
+              _userNames[senderId] = senderName;
+
+              final message = Message(
+                id: id,
+                groupId: widget.groupId,
+                senderId: senderId,
+                content: content,
+                sentAt: sentAt,
+                senderName: senderName,
+                isEdited: data['is_edited'] == true,
+              );
+
+              await _db
+                  .createMessage(message)
+                  .then((_) {
+                    if (mounted) {
+                      setState(() {
+                        if (_messageMap.containsKey(message.id)) {
+                          print('🟡 Обновляем сообщение: ${message.id}');
+                        }
+                        _messageMap[message.id] = message;
+                      });
+                    }
+                    _scrollToBottom();
+                  })
+                  .catchError((e) {
+                    print('Ошибка сохранения в локальную БД: $e');
+                  });
             }
-            _scrollToBottom();
-          }).catchError((e) {
-            print('Ошибка сохранения в локальную БД: $e');
-          });
-        }
-      }, onError: (error) {
-        print('Stream error: $error');
-      });
+          },
+          onError: (error) {
+            print('Stream error: $error');
+          },
+        );
   }
 
   Future<void> _loadUserData() async {
@@ -267,8 +278,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
 
       // Получаем имя из локальной БД (если есть)
       final user = await _db.readUserById(_currentUserId ?? '');
-       _currentUserName = user?.name ?? 'Вы';
-    // Загрузим имена всех участников группы
+      _currentUserName = user?.name ?? 'Вы';
+      // Загрузим имена всех участников группы
       await _preloadUserInfo();
     } catch (e) {
       print('Ошибка загрузки пользователя: $e');
@@ -285,7 +296,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
           .select('user_id')
           .eq('group_id', widget.groupId);
 
-      final userIds = members.map((m) => m['user_id']).whereType<String>().toList();
+      final userIds = members
+          .map((m) => m['user_id'])
+          .whereType<String>()
+          .toList();
       if (userIds.isEmpty) return;
 
       final users = await Supabase.instance.client
@@ -310,7 +324,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
 
       final remoteResponse = await Supabase.instance.client
           .from('messages')
-          .select('id, group_id, sender_id, content, sent_at, sender_name, is_edited')
+          .select(
+            'id, group_id, sender_id, content, sent_at, sender_name, is_edited',
+          )
           .eq('group_id', widget.groupId)
           .order('sent_at', ascending: true);
 
@@ -362,9 +378,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
         _isLoading = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка загрузки чата')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Ошибка загрузки чата')));
     }
   }
 
@@ -403,17 +419,16 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
       try {
         final response = await Supabase.instance.client
             .from('messages')
-            .update({
-              'content': content,
-              'is_edited': true,
-            })
+            .update({'content': content, 'is_edited': true})
             .eq('id', updatedMessage.id)
             .select();
 
         if (response.isEmpty) {
-          throw Exception('Supabase не обновил сообщение — возможно, RLS или id не найден');
+          throw Exception(
+            'Supabase не обновил сообщение — возможно, RLS или id не найден',
+          );
         }
-        
+
         print('✅ Ответ от Supabase при обновлении: $response');
 
         await _db.updateMessage(updatedMessage);
@@ -428,9 +443,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
         _scrollToBottom();
       } catch (e) {
         print('Ошибка обновления сообщения: $e');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Не удалось изменить'))
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Не удалось изменить')));
       }
     } else {
       // Обычная отправка
@@ -476,11 +491,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
         });
         _textController.clear();
         _scrollToBottom();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Не удалось отправить: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Не удалось отправить: $e')));
       }
-    }  
+    }
   }
 
   @override
@@ -500,7 +515,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
     // Цвета в зависимости от темы (как в signup_screen.dart)
     final hintColor = isDarkMode ? Colors.grey[400] : Colors.grey;
     final fieldFillColor = isDarkMode ? Colors.grey[800] : Colors.white;
-    final dividerColor = isDarkMode ? Colors.grey[700] : const Color.fromARGB(84, 158, 158, 158);
+    final dividerColor = isDarkMode
+        ? Colors.grey[700]
+        : const Color.fromARGB(84, 158, 158, 158);
     final dateLabelColor = isDarkMode ? Colors.grey[700]! : Colors.white;
     final dateTextColor = isDarkMode ? Colors.white : Colors.black;
     final otherMessageBg = isDarkMode ? Colors.grey[800]! : Colors.white;
@@ -519,26 +536,25 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _messages.isEmpty
-                    ?Center(
-                        child: Text(
-                          'Ещё нет сообщений',
-                          style: TextStyle(
-                            color: hintColor,
-                          ),
-                        ),
-                      )
-                    : ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.all(12),
-                        itemCount: _messages.length,
-                        itemBuilder: (context, index) {
-                          final message = _messages[index];
-                          final isMe = message.senderId == _currentUserId;
-                          // Проверяем, нужно ли показывать дату
-                          bool showDate = true;
-                          if (index > 0) {
-                            final prevMessage = _messages[index - 1];
-                            showDate = !DateTime(
+                ? Center(
+                    child: Text(
+                      'Ещё нет сообщений',
+                      style: TextStyle(color: hintColor),
+                    ),
+                  )
+                : ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(12),
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      final message = _messages[index];
+                      final isMe = message.senderId == _currentUserId;
+                      // Проверяем, нужно ли показывать дату
+                      bool showDate = true;
+                      if (index > 0) {
+                        final prevMessage = _messages[index - 1];
+                        showDate =
+                            !DateTime(
                               message.sentAt.year,
                               message.sentAt.month,
                               message.sentAt.day,
@@ -549,31 +565,35 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                                 prevMessage.sentAt.day,
                               ),
                             );
-                          }
-                          // ГРУППИРОВКА: Определяем начало и конец блока
-                          final bool isStartOfGroup = _isStartOfMessageGroup(index);
-                          final bool isEndOfGroup = _isEndOfMessageGroup(index);
+                      }
+                      // ГРУППИРОВКА: Определяем начало и конец блока
+                      final bool isStartOfGroup = _isStartOfMessageGroup(index);
+                      final bool isEndOfGroup = _isEndOfMessageGroup(index);
 
-                          return Column(
-                            children: [
-                              if (showDate)
-                                _buildDateLabel(message.sentAt, dateLabelColor, dateTextColor),
-                              _buildMessageBubble(
-                                message, 
-                                isMe, 
-                                isDarkMode, 
-                                myMessageBg, 
-                                otherMessageBg, 
-                                otherMessageText,
-                                timeTextColorMy,
-                                timeTextColorOther,
-                                isStart: isStartOfGroup,
-                                isEnd: isEndOfGroup,
-                              ),
-                            ],
-                          );
-                        },
-                      ),
+                      return Column(
+                        children: [
+                          if (showDate)
+                            _buildDateLabel(
+                              message.sentAt,
+                              dateLabelColor,
+                              dateTextColor,
+                            ),
+                          _buildMessageBubble(
+                            message,
+                            isMe,
+                            isDarkMode,
+                            myMessageBg,
+                            otherMessageBg,
+                            otherMessageText,
+                            timeTextColorMy,
+                            timeTextColorOther,
+                            isStart: isStartOfGroup,
+                            isEnd: isEndOfGroup,
+                          ),
+                        ],
+                      );
+                    },
+                  ),
           ),
           // Поле ввода
           Container(
@@ -594,12 +614,14 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                 if (_lastTextValue != null)
                   FloatingActionButton(
                     onPressed: _undoLastEmoji,
-                    backgroundColor: isDarkMode ? Colors.grey[700] : Colors.grey[500],
+                    backgroundColor: isDarkMode
+                        ? Colors.grey[700]
+                        : Colors.grey[500],
                     mini: true,
                     child: Icon(
-                      Icons.undo, 
-                      color: isDarkMode ? Colors.grey[300] : Colors.white, 
-                      size: 18
+                      Icons.undo,
+                      color: isDarkMode ? Colors.grey[300] : Colors.white,
+                      size: 18,
                     ),
                   ),
                 const SizedBox(width: 8),
@@ -611,20 +633,24 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                     ),
                     decoration: InputDecoration(
                       hintText: 'Написать сообщение...',
-                      hintStyle: TextStyle(
-                        color: hintColor,
-                      ),
+                      hintStyle: TextStyle(color: hintColor),
                       border: OutlineInputBorder(
-                        borderRadius: const BorderRadius.all(Radius.circular(30)),
+                        borderRadius: const BorderRadius.all(
+                          Radius.circular(30),
+                        ),
                         borderSide: BorderSide.none,
                       ),
                       filled: true,
                       fillColor: fieldFillColor,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                     ),
                     onSubmitted: (value) => _sendMessage(),
                     onChanged: (text) {
-                      _lastTextValue = _textController.value; // Сохраняем перед изменением
+                      _lastTextValue =
+                          _textController.value; // Сохраняем перед изменением
                       _handleTextChange(text);
                     },
                   ),
@@ -656,7 +682,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
     final previous = _messages[index - 1];
 
     final isSameSender = current.senderId == previous.senderId;
-    final isCloseInTime = current.sentAt.difference(previous.sentAt).inMinutes < 5;
+    final isCloseInTime =
+        current.sentAt.difference(previous.sentAt).inMinutes < 5;
 
     return !isSameSender || !isCloseInTime;
   }
@@ -682,16 +709,16 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
   }
 
   final List<(RegExp, String)> _emojiPatterns = [
-    (RegExp(r'(?<!\S):\)(?!\S)'), '😊'),  // :) как отдельное слово
-    (RegExp(r'(?<!\S):\((?!\S)'), '☹️'),   // :(
-    (RegExp(r'(?<!\S);\)(?!\S)'), '😉'),  // ;)
-    (RegExp(r'(?<!\S):D(?!\S)'), '😄'),   // :D
-    (RegExp(r'(?<!\S):P(?!\S)'), '😛'),   // :P
-    (RegExp(r'(?<!\S):O(?!\S)'), '😮'),   // :O
-    (RegExp(r'(?<!\S):3(?!\S)'), '😺'),   // :3
-    (RegExp(r'(?<!\S)<3(?!\S)'), '❤️'),   // <3
-    (RegExp(r'(?<!\S):\*(?!\S)'), '😘'),  // :*
-    (RegExp(r'(?<!\S);P(?!\S)'), '😜'),  // ;P
+    (RegExp(r'(?<!\S):\)(?!\S)'), '😊'), // :) как отдельное слово
+    (RegExp(r'(?<!\S):\((?!\S)'), '☹️'), // :(
+    (RegExp(r'(?<!\S);\)(?!\S)'), '😉'), // ;)
+    (RegExp(r'(?<!\S):D(?!\S)'), '😄'), // :D
+    (RegExp(r'(?<!\S):P(?!\S)'), '😛'), // :P
+    (RegExp(r'(?<!\S):O(?!\S)'), '😮'), // :O
+    (RegExp(r'(?<!\S):3(?!\S)'), '😺'), // :3
+    (RegExp(r'(?<!\S)<3(?!\S)'), '❤️'), // <3
+    (RegExp(r'(?<!\S):\*(?!\S)'), '😘'), // :*
+    (RegExp(r'(?<!\S);P(?!\S)'), '😜'), // ;P
   ];
 
   void _handleTextChange(String text) {
@@ -732,7 +759,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
     if (messageDay.isAtSameDayAs(DateTime(now.year, now.month, now.day))) {
       label = 'Сегодня';
     } else if (messageDay.isAtSameDayAs(
-        DateTime(now.year, now.month, now.day).subtract(const Duration(days: 1)))) {
+      DateTime(now.year, now.month, now.day).subtract(const Duration(days: 1)),
+    )) {
       label = 'Вчера';
     } else {
       label = DateFormat('d MMMM').format(date).capitalize();
@@ -769,14 +797,14 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
     Color timeTextColorMy,
     Color timeTextColorOther, {
     required bool isStart,
-    required bool isEnd, 
-    }
-  ) {
+    required bool isEnd,
+  }) {
     final contentKey = _messageContentKeys[message.id] ??= GlobalKey();
     final bool showAvatar = !isMe; // Только у чужих
 
     final User? senderUser = _userCache[message.senderId];
-    final String senderName = senderUser?.name ?? message.senderName ?? 'Пользователь';
+    final String senderName =
+        senderUser?.name ?? message.senderName ?? 'Пользователь';
 
     return GestureDetector(
       onLongPress: () {
@@ -806,8 +834,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                 ),
 
               // Пустое место вместо аватарки, чтобы следующие сообщения были на уровне первого
-              if (showAvatar && !isEnd) const SizedBox(width: 40), // avatar radius + margin
-
+              if (showAvatar && !isEnd)
+                const SizedBox(width: 40), // avatar radius + margin
               // Само сообщение
               ConstrainedBox(
                 constraints: BoxConstraints(
@@ -821,8 +849,12 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                       borderRadius: BorderRadius.only(
                         topLeft: const Radius.circular(18),
                         topRight: const Radius.circular(18),
-                        bottomLeft: isMe ? const Radius.circular(18) : const Radius.circular(4),
-                        bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(18),
+                        bottomLeft: isMe
+                            ? const Radius.circular(18)
+                            : const Radius.circular(4),
+                        bottomRight: isMe
+                            ? const Radius.circular(4)
+                            : const Radius.circular(18),
                       ),
                     ),
                     child: Column(
@@ -833,18 +865,29 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                         // Имя (только у чужих)
                         if (!isMe && isStart)
                           Padding(
-                            padding: const EdgeInsets.only(left: 12, top: 8, right: 12),
+                            padding: const EdgeInsets.only(
+                              left: 12,
+                              top: 8,
+                              right: 12,
+                            ),
                             child: Text(
                               senderName,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
-                                color: isMe ? Colors.white70 : (isDarkMode ? Colors.white : Colors.black),
+                                color: isMe
+                                    ? Colors.white70
+                                    : (isDarkMode
+                                          ? Colors.white
+                                          : Colors.black),
                               ),
                             ),
                           ),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                           child: Text(
                             message.content,
                             style: TextStyle(
@@ -856,7 +899,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                           ),
                         ),
                         Padding(
-                          padding: const EdgeInsets.only(left: 12, right: 12, bottom: 8),
+                          padding: const EdgeInsets.only(
+                            left: 12,
+                            right: 12,
+                            bottom: 8,
+                          ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -865,7 +912,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                                   'изменено • ',
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: isMe ? timeTextColorMy : timeTextColorOther,
+                                    color: isMe
+                                        ? timeTextColorMy
+                                        : timeTextColorOther,
                                   ),
                                 )
                               else
@@ -874,7 +923,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                                 _formatTime(message.sentAt),
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: isMe ? timeTextColorMy : timeTextColorOther,
+                                  color: isMe
+                                      ? timeTextColorMy
+                                      : timeTextColorOther,
                                 ),
                               ),
                             ],
@@ -908,14 +959,17 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
         behavior: SnackBarBehavior.floating,
         backgroundColor: isDarkMode ? Colors.grey[800] : Colors.white,
         elevation: 6,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
 
-  void _showMessageMenu(BuildContext context, Message message, GlobalKey contentKey, bool isDarkMode) {
+  void _showMessageMenu(
+    BuildContext context,
+    Message message,
+    GlobalKey contentKey,
+    bool isDarkMode,
+  ) {
     if (_messageMenuEntry != null) return;
 
     if (contentKey.currentContext == null) {
@@ -923,61 +977,93 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
       return;
     }
 
-    final RenderBox contentBox = contentKey.currentContext!.findRenderObject() as RenderBox;
+    final RenderBox contentBox =
+        contentKey.currentContext!.findRenderObject() as RenderBox;
     final Offset contentPosition = contentBox.localToGlobal(Offset.zero);
     final Size contentSize = contentBox.size;
 
-    print('📏 Позиция пузыря: dx=${contentPosition.dx}, dy=${contentPosition.dy}');
-    print('📏 Размер пузыря: width=${contentSize.width}, height=${contentSize.height}');
-    
+    print(
+      '📏 Позиция пузыря: dx=${contentPosition.dx}, dy=${contentPosition.dy}',
+    );
+    print(
+      '📏 Размер пузыря: width=${contentSize.width}, height=${contentSize.height}',
+    );
+
     final OverlayState? overlayState = Overlay.of(context);
     if (overlayState == null) {
-      print('🔴 Overlay.of(context) вернул null — контекст не подключён к Overlay');
+      print(
+        '🔴 Overlay.of(context) вернул null — контекст не подключён к Overlay',
+      );
       return;
     }
 
     final bool isSender = message.senderId == _currentUserId;
-    final bool canBeEdited = isSender && DateTime.now().difference(message.sentAt).inHours < 24;
+    final bool canBeEdited =
+        isSender && DateTime.now().difference(message.sentAt).inHours < 24;
     final bool canBeDeleted = isSender; // можно удалять свои
 
     final Size screenSize = MediaQuery.of(context).size;
-    final EdgeInsets safePadding = MediaQuery.of(context).padding;  // Учёт notch/bottom bar
+    final EdgeInsets safePadding = MediaQuery.of(
+      context,
+    ).padding; // Учёт notch/bottom bar
 
-    print('🖥️ Размер экрана: width=${screenSize.width}, height=${screenSize.height}');
-    print('🛡️ Safe padding: top=${safePadding.top}, bottom=${safePadding.bottom}, left=${safePadding.left}, right=${safePadding.right}');
+    print(
+      '🖥️ Размер экрана: width=${screenSize.width}, height=${screenSize.height}',
+    );
+    print(
+      '🛡️ Safe padding: top=${safePadding.top}, bottom=${safePadding.bottom}, left=${safePadding.left}, right=${safePadding.right}',
+    );
 
     final double maxMenuWidth = screenSize.width * 0.4;
     double menuHeight = (canBeEdited ? 60 : 0) + (canBeDeleted ? 60 : 0);
-  
+
     // Offsets для тонкой настройки
-    final double horizontalOffset = isSender ? 40 : -40;  // Измените: >0 правее, <0 левее
-    const double verticalOffset = -30;     // Измените: >0 ниже, <0 выше
-    print('🔧 Применённые offsets: horizontal=$horizontalOffset, vertical=$verticalOffset');
-    
+    final double horizontalOffset = isSender
+        ? 40
+        : -40; // Измените: >0 правее, <0 левее
+    const double verticalOffset = -30; // Измените: >0 ниже, <0 выше
+    print(
+      '🔧 Применённые offsets: horizontal=$horizontalOffset, vertical=$verticalOffset',
+    );
+
     // Позиционирование меню// Перекрытие: если места мало, позволяем overlap на N px
-    const double overlapAmount = 10;  // Измените: больше — больше перекрытия
+    const double overlapAmount = 10; // Измените: больше — больше перекрытия
 
     // Проверка пространства слева/справа
-    double preferredLeft = isSender 
+    double preferredLeft = isSender
         ? contentPosition.dx - maxMenuWidth - 10 + horizontalOffset
         : contentPosition.dx + contentSize.width + 10 + horizontalOffset;
 
     if (preferredLeft < safePadding.left) {
-      preferredLeft = contentPosition.dx + contentSize.width - overlapAmount + horizontalOffset;  // Fallback справа
+      preferredLeft =
+          contentPosition.dx +
+          contentSize.width -
+          overlapAmount +
+          horizontalOffset; // Fallback справа
       print('↔️ Перекрытие: Меню частично на пузыре справа (мало места слева)');
-    } else if (preferredLeft + maxMenuWidth > screenSize.width - safePadding.right) {
-      preferredLeft = contentPosition.dx - maxMenuWidth + overlapAmount + horizontalOffset;  // Fallback слева
+    } else if (preferredLeft + maxMenuWidth >
+        screenSize.width - safePadding.right) {
+      preferredLeft =
+          contentPosition.dx -
+          maxMenuWidth +
+          overlapAmount +
+          horizontalOffset; // Fallback слева
       print('↔️ Перекрытие: Меню частично на пузыре слева (мало места справа)');
     }
 
     // Для top: предпочтительно ниже, но если места мало — сверху
-    double preferredTop = contentPosition.dy + contentSize.height + 10 + verticalOffset;
+    double preferredTop =
+        contentPosition.dy + contentSize.height + 10 + verticalOffset;
     if (preferredTop + menuHeight > screenSize.height - safePadding.bottom) {
-      preferredTop = contentPosition.dy - menuHeight - overlapAmount + verticalOffset;  // Сверху
+      preferredTop =
+          contentPosition.dy -
+          menuHeight -
+          overlapAmount +
+          verticalOffset; // Сверху
       print('↕️ Fallback: Меню сверху (мало места снизу)');
       if (preferredTop < safePadding.top) {
-        preferredTop = safePadding.top + overlapAmount;  // Clamp сверху
-        print('↕️ Clamp: Меню прижато к верхнему краю');      
+        preferredTop = safePadding.top + overlapAmount; // Clamp сверху
+        print('↕️ Clamp: Меню прижато к верхнему краю');
       }
     }
 
@@ -989,7 +1075,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
     );
 
     final scale = Tween<double>(begin: 0.7, end: 1.0).animate(
-      CurvedAnimation(parent: _menuAnimationController!, curve: Curves.easeOutBack),
+      CurvedAnimation(
+        parent: _menuAnimationController!,
+        curve: Curves.easeOutBack,
+      ),
     );
     final opacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _menuAnimationController!, curve: Curves.easeOut),
@@ -1023,14 +1112,22 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                             if (canBeEdited)
+                            if (canBeEdited)
                               ListTile(
-                                leading: Icon(Icons.edit, size: 18, color: isDarkMode ? Colors.blue[300] : Colors.blue),
+                                leading: Icon(
+                                  Icons.edit,
+                                  size: 18,
+                                  color: isDarkMode
+                                      ? Colors.blue[300]
+                                      : Colors.blue,
+                                ),
                                 title: Text(
-                                  "Изменить", 
+                                  "Изменить",
                                   style: TextStyle(
                                     fontSize: 14,
-                                    color: isDarkMode ? Colors.white : Colors.black87,
+                                    color: isDarkMode
+                                        ? Colors.white
+                                        : Colors.black87,
                                   ),
                                 ),
                                 onTap: () {
@@ -1038,13 +1135,22 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                                   _startEditing(message);
                                 },
                               ),
-                            ListTile( // ← Новый пункт: Копировать
-                              leading: Icon(Icons.copy, size: 18, color: isDarkMode ? Colors.grey[300] : Colors.grey[700]),
+                            ListTile(
+                              // ← Новый пункт: Копировать
+                              leading: Icon(
+                                Icons.copy,
+                                size: 18,
+                                color: isDarkMode
+                                    ? Colors.grey[300]
+                                    : Colors.grey[700],
+                              ),
                               title: Text(
-                                "Копировать", 
+                                "Копировать",
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: isDarkMode ? Colors.white : Colors.black87,
+                                  color: isDarkMode
+                                      ? Colors.white
+                                      : Colors.black87,
                                 ),
                               ),
                               onTap: () {
@@ -1054,12 +1160,20 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
                             ),
                             if (canBeDeleted)
                               ListTile(
-                                leading: Icon(Icons.delete, size: 18, color: isDarkMode ? Colors.red[300] : Colors.red),
+                                leading: Icon(
+                                  Icons.delete,
+                                  size: 18,
+                                  color: isDarkMode
+                                      ? Colors.red[300]
+                                      : Colors.red,
+                                ),
                                 title: Text(
-                                  "Удалить", 
+                                  "Удалить",
                                   style: TextStyle(
                                     fontSize: 14,
-                                    color: isDarkMode ? Colors.white : Colors.black87,
+                                    color: isDarkMode
+                                        ? Colors.white
+                                        : Colors.black87,
                                   ),
                                 ),
                                 onTap: () {
@@ -1095,43 +1209,62 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
   }
 
   Future<void> _confirmDelete(Message message, bool isDarkMode) async {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final textColor = isDarkMode ? Colors.white : Colors.black;
+    final hintColor = isDarkMode ? Colors.grey[400] : Colors.black;
+
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: isDarkMode ? Colors.grey[800] : Colors.white,
-        title: Text(
-          "Удалить сообщение?",
-          style: TextStyle(
-            color: isDarkMode ? Colors.white : Colors.black87,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: theme.scaffoldBackgroundColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
-        ),
-        content: Text(
-          "Это сообщение будет удалено безвозвратно.",
-          style: TextStyle(
-            color: isDarkMode ? Colors.white70 : Colors.black54,
+          title: Row(
+            children: [
+              Text(
+                'Удалить сообщение',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  color: textColor,
+                ),
+              ),
+            ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              "Отмена",
-              style: TextStyle(
-                color: isDarkMode ? Colors.blue[300] : Colors.blue,
+          content: Text(
+            'Вы удалите это сообщение.',
+            style: theme.textTheme.bodyMedium?.copyWith(color: hintColor),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(
+                'Нет, оставить',
+                style: GoogleFonts.poppins(color: theme.primaryColor),
               ),
             ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(
-              "Удалить", 
-              style: TextStyle(
-                color: isDarkMode ? Colors.red[300] : Colors.red,
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+              ),
+              child: Text(
+                'Да, удалить',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
               ),
             ),
-          ),
-        ],
-      ),
+          ],
+        );
+      },
     );
 
     if (confirmed == true) {
@@ -1165,9 +1298,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> with TickerProviderSt
       }
     } catch (e) {
       print('Ошибка удаления сообщения: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Не удалось удалить сообщение')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Не удалось удалить сообщение')));
     }
   }
 
@@ -1195,7 +1328,9 @@ extension DateTimeExtension on DateTime {
 
   bool isYesterday() {
     final yesterday = DateTime.now().subtract(const Duration(days: 1));
-    return yesterday.day == day && yesterday.month == month && yesterday.year == year;
+    return yesterday.day == day &&
+        yesterday.month == month &&
+        yesterday.year == year;
   }
 }
 

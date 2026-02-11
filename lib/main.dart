@@ -80,44 +80,48 @@ class _MyAppState extends State<MyApp> {
   }
 
   void _handleDeepLink(Uri uri) async {
-  print('Deep link received: ${uri.toString()}');
-  print('Fragment: ${uri.fragment}');
+    print('Deep link received: ${uri.toString()}');
+    print('Fragment: ${uri.fragment}');
 
-  if (uri.scheme == 'taskplanner' && uri.path.contains('reset-password')) { 
-    final params = Uri.parse('?' + uri.fragment).queryParameters;
-    print('Params: $params');
+    if (uri.scheme == 'taskplanner' && uri.path.contains('reset-password')) {
+      final params = Uri.parse('?' + uri.fragment).queryParameters;
+      print('Params: $params');
 
-    final tokenHash = params['token_hash'] ?? params['access_token'];
-    final type = params['type'];
+      final tokenHash = params['token_hash'] ?? params['access_token'];
+      final type = params['type'];
 
-    if (type == 'recovery' && tokenHash != null) {
-      try {
-        await supabase.auth.verifyOTP(
-          tokenHash: tokenHash,
-          type: OtpType.recovery,
-        );
-        print('OTP verified');
-
-        if (mounted) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const ResetPasswordScreen()),
+      if (type == 'recovery' && tokenHash != null) {
+        try {
+          await supabase.auth.verifyOTP(
+            tokenHash: tokenHash,
+            type: OtpType.recovery,
           );
-        }
-      } catch (e) {
-        print('Error: $e');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+          print('OTP verified');
+
+          if (mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const ResetPasswordScreen(),
+              ),
+            );
+          }
+        } catch (e) {
+          print('Error: $e');
+          if (mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+          }
         }
       }
     }
   }
-}
 
   late final _authSubscription = supabase.auth.onAuthStateChange.listen((data) {
     final event = data.event;
     if (event == AuthChangeEvent.passwordRecovery) {
-      print('Auth event: passwordRecovery');  // Для отладки
+      print('Auth event: passwordRecovery'); // Для отладки
       if (mounted) {
         Navigator.push(
           context,
@@ -178,23 +182,26 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<ThemeMode> _loadThemeMode() async {
-  final prefs = await SharedPreferences.getInstance();
-  final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+    final prefs = await SharedPreferences.getInstance();
+    final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
 
-  if (!isLoggedIn) return ThemeMode.system;
+    if (!isLoggedIn) return ThemeMode.system;
 
-  final userId = await AuthService.instance.getCurrentUserId();
-  if (userId == null) return ThemeMode.system;
+    final userId = await AuthService.instance.getCurrentUserId();
+    if (userId == null) return ThemeMode.system;
 
-  final settings = await DatabaseService.instance.readAppSettings(userId);
-  final theme = settings?.theme ?? 'system';
+    final settings = await DatabaseService.instance.readAppSettings(userId);
+    final theme = settings?.theme ?? 'system';
 
-  switch (theme) {
-    case 'light': return ThemeMode.light;
-    case 'dark': return ThemeMode.dark;
-    default: return ThemeMode.system;
+    switch (theme) {
+      case 'light':
+        return ThemeMode.light;
+      case 'dark':
+        return ThemeMode.dark;
+      default:
+        return ThemeMode.system;
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -207,10 +214,7 @@ class _MyAppState extends State<MyApp> {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          supportedLocales: const [
-            Locale('ru', 'RU'),
-            Locale('en', 'US'),
-          ],
+          supportedLocales: const [Locale('ru', 'RU'), Locale('en', 'US')],
           locale: const Locale('ru'),
           theme: lightTheme,
           darkTheme: darkTheme,
@@ -261,12 +265,13 @@ class MainScreen extends StatefulWidget {
   }
 }
 
-class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
+class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   int _selectedIndex = 0;
   final List<Widget> _screenStack = [];
   late List<Widget> _mainScreens;
   OverlayEntry? _overlayEntry;
-  double _rotationAngle = 0.0; // Угол поворота для анимации (0 - плюс, 0.125 - крестик вправо)
+  double _rotationAngle =
+      0.0; // Угол поворота для анимации (0 - плюс, 0.125 - крестик вправо)
   late List<bool> _isButtonPressed; // Состояние для каждой кнопки в меню
   bool _isAnimating = false; // Флаг для блокировки анимации во время выполнения
   final Connectivity _connectivity = Connectivity();
@@ -275,7 +280,8 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
   bool _isMoreMenuVisible = false;
   double _moreMenuOffsetY = 0.0; // Для анимации slide
   late AnimationController _moreMenuController;
-  int _previousSelectedIndex = 0;  // Новая переменная для хранения предыдущего состояния
+  int _previousSelectedIndex =
+      0; // Новая переменная для хранения предыдущего состояния
   bool _isMenuOpenUpward = true;
   late AnimationController _createMenuController;
   late Animation<double> _createMenuSlide;
@@ -298,7 +304,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
     ];
     _screenStack.add(_mainScreens[_selectedIndex]);
     _isButtonPressed = List.filled(_createOptions.length, false);
-    
+
     _createMenuController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
@@ -317,12 +323,16 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
 
   void _startConnectivityListener() {
     _connectivitySubscription = _connectivity.onConnectivityChanged
-      .map((results) => results.isNotEmpty ? results.first : ConnectivityResult.none)
-      .listen((ConnectivityResult result) {
-        if (result == ConnectivityResult.wifi || result == ConnectivityResult.mobile) {
-          _syncIfOnline();
-      }
-    });
+        .map(
+          (results) =>
+              results.isNotEmpty ? results.first : ConnectivityResult.none,
+        )
+        .listen((ConnectivityResult result) {
+          if (result == ConnectivityResult.wifi ||
+              result == ConnectivityResult.mobile) {
+            _syncIfOnline();
+          }
+        });
   }
 
   static const List<Map<String, dynamic>> _moreScreens = [
@@ -336,21 +346,9 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
       'screen': CountdownsScreen(),
       'icon': Icons.timer,
     },
-    {
-      'title': 'Контакты',
-      'screen': ContactsScreen(),
-      'icon': Icons.contacts,
-    },
-    {
-      'title': 'Аккаунт',
-      'screen': AccountScreen(),
-      'icon': Icons.person,
-    },
-    {
-      'title': 'Настройки',
-      'screen': SettingsScreen(),
-      'icon': Icons.settings,
-    },
+    {'title': 'Контакты', 'screen': ContactsScreen(), 'icon': Icons.contacts},
+    {'title': 'Аккаунт', 'screen': AccountScreen(), 'icon': Icons.person},
+    {'title': 'Настройки', 'screen': SettingsScreen(), 'icon': Icons.settings},
   ];
 
   static const List<Map<String, dynamic>> _createOptions = [
@@ -438,7 +436,8 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
       _rotationAngle = 0.125;
     });
 
-    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
     final RenderBox button = context.findRenderObject() as RenderBox;
     final Size overlaySize = overlay.size;
 
@@ -447,7 +446,8 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
     final menuHeight = 70.0 + triangleHeight;
     final screenWidth = overlaySize.width;
 
-    final left = (buttonPosition.dx + (button.size.width / 2) - (menuWidth / 2)).clamp(0.0, screenWidth - menuWidth);
+    final left = (buttonPosition.dx + (button.size.width / 2) - (menuWidth / 2))
+        .clamp(0.0, screenWidth - menuWidth);
 
     // Сбрасываем анимацию
     _createMenuController.reset();
@@ -455,12 +455,12 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
     _overlayEntry = OverlayEntry(
       builder: (context) {
         final theme = Theme.of(context);
-      final isDarkMode = theme.brightness == Brightness.dark;
-      
-      // Определяем цвета как в навигации
-      final activeColor = theme.primaryColor;
-      final inactiveColor = isDarkMode ? Colors.grey[500]! : Colors.grey[400];
-        
+        final isDarkMode = theme.brightness == Brightness.dark;
+
+        // Определяем цвета как в навигации
+        final activeColor = theme.primaryColor;
+        final inactiveColor = isDarkMode ? Colors.grey[500]! : Colors.grey[400];
+
         return Stack(
           children: [
             // Фон — закрывает всё и закрывает меню при тапе
@@ -469,9 +469,8 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
                 onTap: _hideCreateMenu,
                 child: AnimatedBuilder(
                   animation: _createMenuFade,
-                  builder: (context, child) => Container(
-                    color: Colors.transparent,
-                  ),
+                  builder: (context, child) =>
+                      Container(color: Colors.transparent),
                 ),
                 behavior: HitTestBehavior.translucent,
               ),
@@ -489,10 +488,11 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
                     color: Colors.transparent,
                     child: PhysicalShape(
                       clipper: MenuClipper(),
-                      color: isDarkMode 
+                      color: isDarkMode
                           ? (theme.popupMenuTheme.color ?? Colors.grey[800]!)
-                          : (theme.popupMenuTheme.color ?? const Color(0xFFF8F9FA)),
-                      shadowColor: isDarkMode 
+                          : (theme.popupMenuTheme.color ??
+                                const Color(0xFFF8F9FA)),
+                      shadowColor: isDarkMode
                           ? Colors.black.withOpacity(0.4)
                           : Colors.black.withOpacity(0.2),
                       elevation: 8,
@@ -501,10 +501,14 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
                         child: Container(
                           height: menuHeight,
                           width: menuWidth,
-                          color: isDarkMode ? Colors.grey[800] : const Color(0xFFF8F9FA),
+                          color: isDarkMode
+                              ? Colors.grey[800]
+                              : const Color(0xFFF8F9FA),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
-                            children: _createOptions.asMap().entries.map((entry) {
+                            children: _createOptions.asMap().entries.map((
+                              entry,
+                            ) {
                               final index = entry.key;
                               final option = entry.value;
                               return GestureDetector(
@@ -521,7 +525,9 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
                                   });
                                   Navigator.push(
                                     context,
-                                    MaterialPageRoute(builder: (context) => option['screen']),
+                                    MaterialPageRoute(
+                                      builder: (context) => option['screen'],
+                                    ),
                                   );
                                 },
                                 onTapCancel: () {
@@ -531,20 +537,23 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
                                 },
                                 child: AnimatedContainer(
                                   duration: const Duration(milliseconds: 150),
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 10,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: _isButtonPressed[index] 
-                                        ? (isDarkMode 
-                                            ? const Color(0x445F7DFF) 
-                                            : const Color(0x337e61f3))
+                                    color: _isButtonPressed[index]
+                                        ? (isDarkMode
+                                              ? const Color(0x445F7DFF)
+                                              : const Color(0x337e61f3))
                                         : Colors.transparent,
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Icon(
                                     option['icon'],
-                                    color: _isButtonPressed[index] 
-                                      ? theme.primaryColor
-                                      : inactiveColor,
+                                    color: _isButtonPressed[index]
+                                        ? theme.primaryColor
+                                        : inactiveColor,
                                     size: 30,
                                   ),
                                 ),
@@ -618,24 +627,31 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
     }
   }
 
-  void _showMoreMenu(BuildContext context, Offset buttonPosition, Size buttonSize) {  // Добавили buttonSize как параметр
+  void _showMoreMenu(
+    BuildContext context,
+    Offset buttonPosition,
+    Size buttonSize,
+  ) {
+    // Добавили buttonSize как параметр
     if (_isAnimating) return;
     _hideMoreMenu();
     _previousSelectedIndex = _selectedIndex;
-    
 
-    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
-    final double menuWidth = 200.0;  // Ваша ширина меню
-    final double menuHeight = _moreScreens.length * 50.0 + 20.0;  // Примерная высота (подкорректируйте, если нужно)
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+    final double menuWidth = 200.0; // Ваша ширина меню
+    final double menuHeight =
+        _moreScreens.length * 50.0 +
+        20.0; // Примерная высота (подкорректируйте, если нужно)
     final double screenWidth = overlay.size.width;
     final double screenHeight = overlay.size.height;
 
     // Центрирование по X
     double left = buttonPosition.dx + (buttonSize.width / 2) - (menuWidth / 2);
-    left = left.clamp(0.0, screenWidth - menuWidth);  // Не даём уйти за края
+    left = left.clamp(0.0, screenWidth - menuWidth); // Не даём уйти за края
 
     // Позиционирование по Y: выше кнопки для upward меню
-    double padding = 20.0;  // Отступ от кнопки
+    double padding = 20.0; // Отступ от кнопки
     double initialTop = buttonPosition.dy - menuHeight - padding;
 
     // Проверка места сверху: если не влезает, открываем ниже (fallback)
@@ -644,7 +660,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
     if (!openUpward) {
       initialTop = buttonPosition.dy + buttonSize.height + padding;
       if (initialTop + menuHeight > screenHeight) {
-        initialTop = screenHeight - menuHeight;  // Clamp снизу
+        initialTop = screenHeight - menuHeight; // Clamp снизу
       }
     }
 
@@ -658,7 +674,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
       builder: (context) {
         final theme = Theme.of(context);
         final isDarkMode = theme.brightness == Brightness.dark;
-        
+
         return Stack(
           children: [
             GestureDetector(
@@ -685,7 +701,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
                   child: Material(
                     elevation: 8,
                     borderRadius: BorderRadius.circular(12),
-                    color: isDarkMode 
+                    color: isDarkMode
                         ? Colors.grey[800]!
                         : const Color(0xFFF8F9FA),
                     child: Container(
@@ -698,20 +714,24 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
                           final screen = entry.value;
                           return ListTile(
                             leading: Icon(
-                              screen['icon'], 
-                              color: theme.primaryColor
+                              screen['icon'],
+                              color: theme.primaryColor,
                             ),
                             title: Text(
                               screen['title'],
                               style: theme.textTheme.bodyMedium?.copyWith(
-                                color: isDarkMode ? Colors.white : Colors.black87,
+                                color: isDarkMode
+                                    ? Colors.white
+                                    : Colors.black87,
                               ),
                             ),
                             onTap: () {
                               _hideMoreMenu();
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (context) => screen['screen']),
+                                MaterialPageRoute(
+                                  builder: (context) => screen['screen'],
+                                ),
                               );
                             },
                           );
@@ -726,7 +746,6 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
         );
       },
     );
-
 
     Overlay.of(context).insert(_moreOverlayEntry!);
     _moreMenuController.reset();
@@ -756,10 +775,12 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
 
     // Цвета для навигации в зависимости от темы
     final activeColor = theme.primaryColor;
-    final inactiveColor = isDarkMode ? Colors.grey[500]! : const Color(0xFFB0BEC5);
+    final inactiveColor = isDarkMode
+        ? Colors.grey[500]!
+        : const Color(0xFFB0BEC5);
     final navBarBgColor = theme.scaffoldBackgroundColor;
-    final shadowColor = isDarkMode 
-        ? Colors.white.withOpacity(0.04) 
+    final shadowColor = isDarkMode
+        ? Colors.white.withOpacity(0.04)
         : Colors.black.withOpacity(0.04);
     final fabColor = const Color(0xFFf37e61); // Цвет FAB остается фиксированным
 
@@ -777,7 +798,8 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
           builder: (context) => GestureDetector(
             onTap: () {
               if (_isAnimating) return;
-              final RenderBox? button = context.findRenderObject() as RenderBox?;
+              final RenderBox? button =
+                  context.findRenderObject() as RenderBox?;
               if (button != null) {
                 final Offset buttonPosition = button.localToGlobal(Offset.zero);
                 if (_overlayEntry == null) {
@@ -864,18 +886,24 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin{
                     ),
                     onPressed: () => _onItemTapped(2),
                   ),
-                  Builder(  // Добавили Builder для правильного context
-                    builder: (context) => 
-                    IconButton(
+                  Builder(
+                    // Добавили Builder для правильного context
+                    builder: (context) => IconButton(
                       icon: Icon(
                         Icons.more_horiz,
-                        color: _selectedIndex == 3 ? activeColor : inactiveColor,
+                        color: _selectedIndex == 3
+                            ? activeColor
+                            : inactiveColor,
                       ),
                       onPressed: () {
                         if (_isAnimating) return;
-                        final RenderBox button = context.findRenderObject() as RenderBox;
-                        final Offset buttonPosition = button.localToGlobal(Offset.zero);
-                        final Size buttonSize = button.size;  // Теперь доступен size
+                        final RenderBox button =
+                            context.findRenderObject() as RenderBox;
+                        final Offset buttonPosition = button.localToGlobal(
+                          Offset.zero,
+                        );
+                        final Size buttonSize =
+                            button.size; // Теперь доступен size
                         if (_isMoreMenuVisible) {
                           _hideMoreMenu(); // Это уже сбросит _selectedIndex
                         } else {
@@ -918,17 +946,33 @@ class MenuClipper extends CustomClipper<Path> {
     // Правая сторона
     path.lineTo(size.width, size.height - cornerRadius - triangleHeight);
     // Правый нижний закругленный угол
-    path.quadraticBezierTo(size.width, size.height - triangleHeight, size.width - cornerRadius, size.height - triangleHeight);
+    path.quadraticBezierTo(
+      size.width,
+      size.height - triangleHeight,
+      size.width - cornerRadius,
+      size.height - triangleHeight,
+    );
     // Нижняя сторона до начала треугольника
-    path.lineTo(triangleCenter + (triangleWidth / 2), size.height - triangleHeight);
+    path.lineTo(
+      triangleCenter + (triangleWidth / 2),
+      size.height - triangleHeight,
+    );
     // Правая часть треугольника
     path.lineTo(triangleCenter, size.height);
     // Левая часть треугольника
-    path.lineTo(triangleCenter - (triangleWidth / 2), size.height - triangleHeight);
+    path.lineTo(
+      triangleCenter - (triangleWidth / 2),
+      size.height - triangleHeight,
+    );
     // Нижняя сторона до левого нижнего угла
     path.lineTo(cornerRadius, size.height - triangleHeight);
     // Левый нижний закругленный угол
-    path.quadraticBezierTo(0, size.height - triangleHeight, 0, size.height - cornerRadius - triangleHeight);
+    path.quadraticBezierTo(
+      0,
+      size.height - triangleHeight,
+      0,
+      size.height - cornerRadius - triangleHeight,
+    );
     // Левая сторона
     path.lineTo(0, cornerRadius);
     path.close();
