@@ -8,6 +8,7 @@ import 'package:collection/collection.dart';
 import '../widgets/user_avatar.dart';
 import '../models/task_assignee.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../models/group_member.dart';
 
 class CreateTaskScreen extends StatefulWidget {
   // Добавляем возможность передать группу по умолчанию
@@ -33,6 +34,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   late String _creatorId; // реальный ID
   List<String> _selectedUserIds = []; // ID назначенных
   List<User> _selectedUsers = []; // Назначенные пользователи
+  late GroupMember? _currentGroupMember;
 
   final DatabaseService _databaseService = DatabaseService.instance;
 
@@ -76,9 +78,18 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
 
     final task = widget.task!;
     final isTaskCreator = _creatorId == task.creatorId;
-    final isGroupCreator = _groups.any((g) => g.id == task.groupId && g.creatorId == _creatorId);
+    bool canManageTasks = false;
 
-    if (isTaskCreator || isGroupCreator) {
+    if (_currentGroupMember != null) {
+      if (_currentGroupMember!.isCreator) {
+        canManageTasks = true;
+      } else if (_currentGroupMember!.isAdmin) {
+        final perms = _currentGroupMember!.getPermissionsMap();
+        canManageTasks = perms['can_manage_tasks'] == true;
+      }
+    }
+
+    if (isTaskCreator || canManageTasks) {
       _viewMode = _TaskViewMode.edit;
     } else {
       _viewMode = _TaskViewMode.view;
@@ -343,6 +354,11 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
       }
 
       final userGroups = await _databaseService.readUserGroups(userId);
+
+      if (widget.task?.groupId != null) {
+        final member = await _databaseService.readGroupMember(widget.task!.groupId!, userId);
+        _currentGroupMember = member;
+      }
 
       setState(() {
         _groups = userGroups;
@@ -612,7 +628,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
             // Название
             TextFormField(
               initialValue: task.title,
-              style: const TextStyle(color: Colors.black),
+              style: TextStyle(color: theme.textTheme.bodyMedium?.color),
               decoration: InputDecoration(
                 labelText: 'Название задачи',
                 labelStyle: theme.textTheme.bodyMedium,
@@ -632,7 +648,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
             // Описание
             TextFormField(
               initialValue: task.description ?? '',
-              style: const TextStyle(color: Colors.black),
+              style: TextStyle(color: theme.textTheme.bodyMedium?.color),
               decoration: InputDecoration(
                 labelText: 'Описание',
                 labelStyle: theme.textTheme.bodyMedium,

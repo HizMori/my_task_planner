@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 import 'package:flutter/services.dart';
 import '../widgets/user_avatar.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../models/group_member.dart';
 
 class GroupChatScreen extends StatefulWidget {
   // Передаём ID группы — важно!
@@ -43,6 +44,7 @@ class _GroupChatScreenState extends State<GroupChatScreen>
   final Map<String, GlobalKey> _messageContentKeys = {}; // ← НОВОЕ: для Column
   OverlayEntry? _messageMenuEntry;
   TextEditingValue? _lastTextValue; // для undo
+  List<GroupMember> _members = [];
 
   @override
   void initState() {
@@ -52,6 +54,7 @@ class _GroupChatScreenState extends State<GroupChatScreen>
 
   Future<void> _initializeChat() async {
     await _loadUserData(); // Ждём получения _currentUserId
+    await _loadGroupMembers();
     await _loadMessages();
     _subscribeToMessages();
     _startPeriodicSync();
@@ -63,6 +66,21 @@ class _GroupChatScreenState extends State<GroupChatScreen>
     _syncTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       _syncMessagesFromSupabase();
     });
+  }
+
+  Future<void> _loadGroupMembers() async {
+    try {
+      final membersData = await Supabase.instance.client
+          .from('group_members')
+          .select('*, users(name)')
+          .eq('group_id', widget.groupId);
+
+      setState(() {
+        _members = membersData.map((e) => GroupMember.fromMap(e)).toList();
+      });
+    } catch (e) {
+      print('Ошибка загрузки участников: $e');
+    }
   }
 
   Future<void> _syncMessagesFromSupabase() async {
@@ -1000,7 +1018,20 @@ class _GroupChatScreenState extends State<GroupChatScreen>
     final bool isSender = message.senderId == _currentUserId;
     final bool canBeEdited =
         isSender && DateTime.now().difference(message.sentAt).inHours < 24;
-    final bool canBeDeleted = isSender; // можно удалять свои
+    
+    // Проверяем, может ли текущий пользователь удалять сообщения
+    final bool canDeleteAnyMessage = _currentUserId != null &&
+        (_members.firstWhere(
+          (m) => m.userId == _currentUserId,
+          orElse: () => GroupMember(
+            groupId: '',
+            userId: '',
+            joinedAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+        ).canDeleteMessages());
+
+    final bool canBeDeleted = isSender || canDeleteAnyMessage;
 
     final Size screenSize = MediaQuery.of(context).size;
     final EdgeInsets safePadding = MediaQuery.of(
@@ -1281,7 +1312,11 @@ class _GroupChatScreenState extends State<GroupChatScreen>
           .eq('id', message.id);
 
       if (response == 0) {
-        throw Exception('Сообщение не найдено в Supabase');
+        // Сообщение не найдено
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Сообщение уже удалено')),
+        );
+        return;
       }
 
       print('✅ Сообщение удалено из Supabase: ${message.id}');

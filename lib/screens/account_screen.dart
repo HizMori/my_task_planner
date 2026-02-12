@@ -27,19 +27,53 @@ class _AccountScreenState extends State<AccountScreen> {
 
   // Загрузка данных пользователя
   Future<void> _loadUser() async {
-    final userId = await AuthService.instance.getCurrentUserId();
-    if (userId == null) {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final userId = await AuthService.instance.getCurrentUserId();
+      if (userId == null) {
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // 🔁 Сначала синхронизируем пользователя из Supabase
+      final supabaseUser = await Supabase.instance.client.auth.getUser();
+      final remoteUserData = await Supabase.instance.client
+          .from('users')
+          .select()
+          .eq('id', supabaseUser.user!.id)
+          .single();
+
+      // 📥 Синхронизируем в локальную БД
+      await DatabaseService.instance.syncUserFromSupabase(remoteUserData);
+
+      // 📖 Теперь читаем из локальной БД — уже обновлённые данные
+      final user = await DatabaseService.instance.readUserById(userId);
       setState(() {
+        _user = user;
         _isLoading = false;
       });
-      return;
-    }
+    } catch (e) {
+      print('Ошибка при загрузке пользователя: $e');
 
-    final user = await DatabaseService.instance.readUserById(userId);
-    setState(() {
-      _user = user;
-      _isLoading = false;
-    });
+      // На случай ошибки — всё равно попробуем показать кэшированного пользователя
+      final userId = await AuthService.instance.getCurrentUserId();
+      if (userId != null) {
+        final cachedUser = await DatabaseService.instance.readUserById(userId);
+        setState(() {
+          _user = cachedUser;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   // Метод для выхода из аккаунта

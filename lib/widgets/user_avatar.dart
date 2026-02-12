@@ -20,9 +20,13 @@ class UserAvatar extends StatelessWidget {
           .from('users')
           .select('avatar_url')
           .eq('id', userId)
-          .single();
+          .maybeSingle();
+      
+      if (response == null) {
+        return null;
+      }
 
-      final avatarUrl = (response as Map)['avatar_url'] as String?;
+      final avatarUrl = response['avatar_url'] as String?;
       if (avatarUrl != null && avatarUrl.isNotEmpty) {
         // Обновим локально при возможности
         final updatedUser = user.copyWith(avatarUrl: avatarUrl);
@@ -30,6 +34,7 @@ class UserAvatar extends StatelessWidget {
       }
       return avatarUrl;
     } catch (e) {
+      print('Error fetching avatarUrl: $e');
       return null;
     }
   }
@@ -37,35 +42,34 @@ class UserAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (user.avatarUrl != null) {
-      return CircleAvatar(
-        radius: radius,
-        backgroundColor: const Color(0xFF7e61f3).withOpacity(0.15),
-        backgroundImage: CachedNetworkImageProvider(user.avatarUrl!),
-        child: CachedNetworkImage(
-          imageUrl: user.avatarUrl!,
-          imageBuilder: (context, imageProvider) => CircleAvatar(
-            radius: radius,
-            backgroundImage: imageProvider,
-          ),
-          placeholder: (context, url) => CircleAvatar(
-            radius: radius,
-            backgroundColor: const Color(0xFF7e61f3).withOpacity(0.15),
-            child: SizedBox(
-              width: radius * 2,
-              height: radius * 2,
-              child: const CircularProgressIndicator(strokeWidth: 2),
+      return CachedNetworkImage(
+        imageUrl: user.avatarUrl!,
+        imageBuilder: (context, imageProvider) => CircleAvatar(
+          radius: radius,
+          backgroundColor: const Color(0xFF7e61f3).withOpacity(0.15),
+          backgroundImage: imageProvider,
+        ),
+        placeholder: (context, url) => CircleAvatar(
+          radius: radius,
+          backgroundColor: const Color(0xFF7e61f3).withOpacity(0.15),
+          child: SizedBox(
+            width: radius * 2,
+            height: radius * 2,
+            child: const CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF7e61f3)),
             ),
           ),
-          errorWidget: (context, url, error) => CircleAvatar(
-            radius: radius,
-            backgroundColor: const Color(0xFF7e61f3).withOpacity(0.15),
-            child: Text(
-              user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-              style: TextStyle(
-                color: const Color(0xFF7e61f3),
-                fontWeight: FontWeight.bold,
-                fontSize: radius,
-              ),
+        ),
+        errorWidget: (context, url, error) => CircleAvatar(
+          radius: radius,
+          backgroundColor: const Color(0xFF7e61f3).withOpacity(0.15),
+          child: Text(
+            user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+            style: TextStyle(
+              color: const Color(0xFF7e61f3),
+              fontWeight: FontWeight.bold,
+              fontSize: radius,
             ),
           ),
         ),

@@ -3,6 +3,7 @@ import '../models/group.dart';
 import '../services/database_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import '../models/group_member.dart';
+import 'dart:convert';
 
 class CreateGroupScreen extends StatefulWidget {
   final Group? group;
@@ -87,36 +88,76 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
           }
         } else {
           final groupId = _db.uuid.v4();
-          group = Group(
+
+          // 1. Создаём объекты
+          final group = Group(
             id: groupId,
             name: _nameController.text.trim(),
             creatorId: userId,
             createdAt: now,
             updatedAt: now,
-            lastSyncAt: now,
+            lastSyncAt: null, // Пока не синхронизировано
           );
 
-          // Сохраняем в локальную БД
-          await _db.createGroup(group);
-
-          // Добавляем создателя в локальные участники
-          await _db.createGroupMember(GroupMember(
+          final creatorMember = GroupMember(
             groupId: groupId,
             userId: userId,
+            role: 'creator',
+            permissions: jsonEncode({
+              'can_edit_group': true,
+              'can_delete_members': true,
+              'can_manage_admins': true,
+              'can_delete_group': true,
+              'can_manage_tasks': true,
+              'can_manage_chat': true,
+            }),
+            customTitle: null,
             joinedAt: now,
             updatedAt: now,
-            lastSyncAt: now,
-          ));
+            lastSyncAt: null,
+          );
 
-          // Синхронизируем с Supabase
-          await _db.syncGroupsToSupabase();
-          await _db.syncGroupMembersToSupabase();
+          try {
+            // вставляем в Supabase
+            await Supabase.instance.client.from('groups').insert(group.toMap());
+            await Supabase.instance.client.from('group_members').insert(creatorMember.toMap());
 
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Группа создана!')),
-            );
-            Navigator.pop(context, true); // Возвращаем true для обновления
+            // сохраняем в локальную БД как СИНХРОНИЗИРОВАННЫЕ (с lastSyncAt = now)
+            await _db.createGroup(group.copyWith(lastSyncAt: now));
+            await _db.createGroupMember(creatorMember.copyWith(lastSyncAt: now));
+            
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Группа создана!')),
+              );
+              Navigator.pop(context, true); // Возвращаем true для обновления
+            }
+          } catch (e) {
+            print('Ошибка при создании группы: $e');
+
+            // Если ошибка — удаляем из Supabase (частичная отмена)
+            try {
+              await Supabase.instance.client
+                  .from('group_members')
+                  .delete()
+                  .match({'group_id': groupId, 'user_id': userId});
+              await Supabase.instance.client
+                  .from('groups')
+                  .delete()
+                  .eq('id', groupId);
+            } catch (_) {}
+            
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Не удалось создать группу: $e')),
+              );
+            }
+          } finally {
+            if (mounted) {
+              setState(() {
+                _isLoading = false;
+              });
+            }
           }
         }
       } catch (e) {

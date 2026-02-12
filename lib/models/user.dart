@@ -15,11 +15,12 @@ class User {
     this.email,
     this.telephone,
     this.avatarUrl,
-    required this.createdAt,
-    required this.updatedAt,
+    DateTime? createdAt,
+    DateTime? updatedAt,
     this.lastSyncAt,
     this.deletedAt,
-  });
+  }) : createdAt = createdAt ?? DateTime.now(),
+       updatedAt = updatedAt ?? DateTime.now();
 
   Map<String, dynamic> toMap() {
     return {

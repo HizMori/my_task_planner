@@ -9,6 +9,7 @@ import '../models/app_settings.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import 'package:uuid/uuid.dart';
 import '../models/task_assignee.dart';
+import 'dart:convert';
 
 class DatabaseService {
   static final DatabaseService instance = DatabaseService._init();
@@ -99,7 +100,7 @@ class DatabaseService {
       final lastSync = await _getLastSyncTime('group_members');
       final response = await supabase
           .from('group_members')
-          .select()
+          .select('*, users(name)')
           .gt('updated_at', lastSync.toIso8601String());
 
       final db = await database;
@@ -130,13 +131,8 @@ class DatabaseService {
       final membersToSync = result.map((e) => GroupMember.fromMap(e)).toList();
 
       for (var member in membersToSync) {
-        final data = {
-          'group_id': member.groupId,
-          'user_id': member.userId,
-          'joined_at': member.joinedAt.toIso8601String(),
-          'updated_at': member.updatedAt.toIso8601String(),
-          'last_sync_at': DateTime.now().toIso8601String(),
-        };
+        final data = member.toMap();
+        data['last_sync_at'] = DateTime.now().toIso8601String();
 
         await supabase.from('group_members').upsert(data);
 
@@ -221,13 +217,6 @@ class DatabaseService {
     // 2. Назначен мне
     whereParts.add('id IN (SELECT task_id FROM task_assignees WHERE user_id = ?)');
     whereArgs.add(userId);
-
-    // 3. Принадлежит моей группе
-    if (groupIds.isNotEmpty) {
-      final groupPlaceholders = List.filled(groupIds.length, '?').join(',');
-      whereParts.add('group_id IN ($groupPlaceholders)');
-      whereArgs.addAll(groupIds);
-    }
 
     final whereClause = whereParts.join(' OR ');
 
@@ -501,6 +490,9 @@ class DatabaseService {
       CREATE TABLE group_members (
         group_id TEXT,
         user_id TEXT,
+        role TEXT DEFAULT 'member',
+        permissions TEXT,
+        custom_title TEXT,
         joined_at TEXT,
         updated_at TEXT,
         last_sync_at TEXT,
@@ -857,6 +849,122 @@ class DatabaseService {
     return result.map((map) => GroupMember.fromMap(map)).toList();
   }
 
+  Future<GroupMember?> readGroupMember(String groupId, String userId) async {
+    final db = await database;
+    final result = await db.query(
+      'group_members',
+      where: 'group_id = ? AND user_id = ?',
+      whereArgs: [groupId, userId],
+    );
+    if (result.isEmpty) return null;
+    return GroupMember.fromMap(result.first);
+  }
+
+  Future<void> updateGroupMember(GroupMember member) async {
+    final db = await database;
+    await db.update(
+      'group_members',
+      member.toMap(),
+      where: 'group_id = ? AND user_id = ?',
+      whereArgs: [member.groupId, member.userId],
+    );
+  }
+
+  Future<void> transferOwnershipAndLeave({
+    required String groupId,
+    required String oldCreatorId,
+    required String newCreatorId,
+  }) async {
+    final db = await database;
+    final now = DateTime.now();
+
+    try {
+      // 1. Обновляем роль старого создателя → admin (или member?)
+      await db.update(
+        'group_members',
+        {
+          'role': 'admin', // Можно оставить админом или сделать member
+          'updated_at': now.toIso8601String(),
+          'last_sync_at': null,
+        },
+        where: 'group_id = ? AND user_id = ?',
+        whereArgs: [groupId, oldCreatorId],
+      );
+
+      // 2. Обновляем роль нового создателя → creator
+      await db.update(
+        'group_members',
+        {
+          'role': 'creator',
+          'permissions': jsonEncode({
+            'can_edit_group': true,
+            'can_delete_members': true,
+            'can_manage_admins': true,
+            'can_delete_group': true,
+            'can_manage_tasks': true,
+            'can_manage_chat': true,
+          }),
+          'custom_title': null,
+          'updated_at': now.toIso8601String(),
+          'last_sync_at': null,
+        },
+        where: 'group_id = ? AND user_id = ?',
+        whereArgs: [groupId, newCreatorId],
+      );
+
+      // 3. Обновляем саму группу: новый creator_id
+      await db.update(
+        'groups',
+        {
+          'creator_id': newCreatorId,
+          'updated_at': now.toIso8601String(),
+          'last_sync_at': null,
+        },
+        where: 'id = ?',
+        whereArgs: [groupId],
+      );
+
+      // 4. Передаём все задачи старого создателя новому
+      await db.update(
+        'tasks',
+        {
+          'creator_id': newCreatorId,
+          'updated_at': now.toIso8601String(),
+          'last_sync_at': null,
+        },
+        where: 'group_id = ? AND creator_id = ?',
+        whereArgs: [groupId, oldCreatorId],
+      );
+
+      // 5. Удаляем старого создателя из назначенных (на всякий случай)
+      await db.delete(
+        'task_assignees',
+        where: 'user_id = ? AND task_id IN (SELECT id FROM tasks WHERE group_id = ?)',
+        whereArgs: [oldCreatorId, groupId],
+      );
+
+      // 6. Синхронизация с Supabase
+      await syncGroupMembersToSupabase();
+      await syncGroupsToSupabase();
+      await syncTasksToSupabase();
+      await syncTaskAssigneesToSupabase();
+
+      // 7. Удаляем старого создателя из группы в Supabase
+      await Supabase.instance.client
+          .from('group_members')
+          .delete()
+          .match({'group_id': groupId, 'user_id': oldCreatorId});
+
+      // 8. Удаляем локально
+      await deleteGroupMemberLocally(groupId, oldCreatorId);
+
+      print('✅ Передача прав завершена: $oldCreatorId → $newCreatorId');
+    } catch (e) {
+      print('❌ Ошибка передачи прав: $e');
+      rethrow;
+    }
+  }
+
   // Удалить всех участников группы
   Future<void> deleteAllMembersByGroupId(String? groupId) async {
     if (groupId == null) return;
@@ -927,12 +1035,10 @@ class DatabaseService {
     );
   }
 
-  Future<int> deleteAppSettings(int userId) async {
+  Future<int> deleteAppSettings(String userId) async {
     final db = await database;
     return await db.delete('app_settings', where: 'user_id = ?', whereArgs: [userId]);
   }
-
-
 
   Future close() async {
     final db = await database;
