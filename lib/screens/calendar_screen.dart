@@ -26,7 +26,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Color _getPriorityColor(String? priority) {
     return switch (priority) {
       'high' => Colors.red,
-      'medium' => Colors.orange,
       'low' => Colors.green,
       _ => Colors.grey,
     };
@@ -35,7 +34,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
   String _getPriorityInitial(String? priority) {
     return switch (priority) {
       'high' => 'В',
-      'medium' => 'С',
       'low' => 'Н',
       _ => '?',
     };

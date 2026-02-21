@@ -30,6 +30,9 @@ dependencies:
   url_launcher: ^6.3.2
   app_links: ^6.4.1
   crypto: ^3.0.7
+  file_picker: ^10.3.10
+  mime: ^2.0.0
+  logger: ^2.6.2
 
 dev_dependencies:
   flutter_test:

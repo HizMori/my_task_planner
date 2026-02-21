@@ -25,6 +25,7 @@ import 'package:provider/provider.dart';
 import 'package:app_links/app_links.dart';
 import 'screens/reset_password_screen.dart';
 import 'screens/lock_screen.dart';
+import 'screens/eisenhower_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,6 +34,8 @@ Future<void> main() async {
     url: 'https://dlqknakuectcbciqssaz.supabase.co',
     anonKey: 'sb_publishable_nzc7YWw8V8N6HwDdzQhI6g_o2sjALYS',
   );
+
+  await DatabaseService.instance.deleteDB();
 
   // Инициализация deep links
   final appLinks = AppLinks();
@@ -346,9 +349,23 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       'screen': CountdownsScreen(),
       'icon': Icons.timer,
     },
-    {'title': 'Контакты', 'screen': ContactsScreen(), 'icon': Icons.contacts},
-    {'title': 'Аккаунт', 'screen': AccountScreen(), 'icon': Icons.person},
-    {'title': 'Настройки', 'screen': SettingsScreen(), 'icon': Icons.settings},
+    {
+      'title': 'Контакты', 
+      'screen': ContactsScreen(), 
+      'icon': Icons.contacts},
+    {
+      'title': 'Аккаунт', 
+      'screen': AccountScreen(), 
+      'icon': Icons.person},
+    {
+      'title': 'Настройки', 
+      'screen': SettingsScreen(), 
+      'icon': Icons.settings},
+    {
+      'title': 'Матрица Эйзенхауэра',
+      'screen': EisenhowerScreen(),
+      'icon': Icons.dashboard,
+    },
   ];
 
   static const List<Map<String, dynamic>> _createOptions = [

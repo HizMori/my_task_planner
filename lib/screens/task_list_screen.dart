@@ -193,14 +193,9 @@ class _TaskListScreenState extends State<TaskListScreen> {
                                     subtitle: Wrap(
                                       spacing: 8,
                                       children: [
-                                        _buildLabel(
-                                          _getPriorityText(task.priority),
-                                          _getPriorityColor(task.priority),
-                                        ),
-                                        _buildLabel(
-                                          _getCategoryText(task.category),
-                                          const Color(0xFF7e61f3),
-                                        ),
+                                        _buildLabel(_getPriorityText(task.priority), _getPriorityColor(task.priority)),
+                                        _buildLabel(_getCategoryText(task.category), const Color(0xFF7e61f3)),
+                                        _buildLabel(_getUrgencyText(task.urgency), _getUrgencyColor(task.urgency))
                                       ],
                                     ),
                                     trailing: Checkbox(
@@ -253,9 +248,8 @@ class _TaskListScreenState extends State<TaskListScreen> {
 
   String _getPriorityText(String? priority) {
     return switch (priority) {
-      'low' => 'Низкий',
-      'medium' => 'Средний',
-      'high' => 'Высокий',
+      'low' => 'Не важно',
+      'high' => 'Важно',
       _ => 'Не указан',
     };
   }
@@ -263,7 +257,6 @@ class _TaskListScreenState extends State<TaskListScreen> {
   Color _getPriorityColor(String? priority) {
     return switch (priority) {
       'low' => Colors.green,
-      'medium' => Colors.orange,
       'high' => Colors.red,
       _ => Colors.grey,
     };
@@ -276,6 +269,22 @@ class _TaskListScreenState extends State<TaskListScreen> {
       'учёба' => 'Учёба',
       'другое' => 'Другое',
       _ => 'Без категории',
+    };
+  }
+
+  String _getUrgencyText(String? urgency) {
+    return switch (urgency) {
+      'urgent' => 'Срочно',
+      'not_urgent' => 'Не срочно',
+      _ => 'Не указано',
+    };
+  }
+
+  Color _getUrgencyColor(String? urgency) {
+    return switch (urgency) {
+      'urgent' => Colors.orange,
+      'not_urgent' => Colors.blueGrey,
+      _ => Colors.grey,
     };
   }
 }

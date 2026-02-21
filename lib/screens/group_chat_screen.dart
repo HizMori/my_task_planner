@@ -1,4 +1,6 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import '../models/message.dart';
@@ -11,6 +13,13 @@ import 'package:flutter/services.dart';
 import '../widgets/user_avatar.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/group_member.dart';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:mime/mime.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'dart:convert';
+import 'package:collection/collection.dart';
 
 class GroupChatScreen extends StatefulWidget {
   // Передаём ID группы — важно!
@@ -41,10 +50,13 @@ class _GroupChatScreenState extends State<GroupChatScreen>
   Message? _selectedMessage; // выбранное сообщение
   bool _isEditing = false; // режим редактирования
   AnimationController? _menuAnimationController;
-  final Map<String, GlobalKey> _messageContentKeys = {}; // ← НОВОЕ: для Column
+  final Map<String, GlobalKey> _messageContentKeys = {};
   OverlayEntry? _messageMenuEntry;
   TextEditingValue? _lastTextValue; // для undo
   List<GroupMember> _members = [];
+  final supabase = Supabase.instance.client;
+  List<File> _selectedFiles = [];
+  Message? _replyingTo;
 
   @override
   void initState() {
@@ -60,12 +72,129 @@ class _GroupChatScreenState extends State<GroupChatScreen>
     _startPeriodicSync();
   }
 
+  void _cancelReply() {
+    setState(() => _replyingTo = null);
+  }
+
   Timer? _syncTimer;
 
   void _startPeriodicSync() {
     _syncTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       _syncMessagesFromSupabase();
     });
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  Future<List<Map<String, String>>> _uploadAttachments(List<File> files) async {
+    final List<Map<String, String>> attachments = [];
+    for (var file in files) {
+      final originalName = file.path
+          .split('/')
+          .last; // это показываем пользователю
+
+      // БЕЗОПАСНОЕ имя для хранения в Supabase
+      final safeName = originalName
+          .replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_') // всё запрещённое → _
+          .replaceAll(RegExp(r'__+'), '_') // множественные подчёркивания → одно
+          .trim();
+
+      final fileName =
+          '${_currentUserId!}/${Uuid().v4()}_$safeName'; // Уникальное имя
+      final mimeType = lookupMimeType(file.path) ?? 'application/octet-stream';
+
+      try {
+        final uploadedPath = await supabase.storage
+            .from('chat-attachments')
+            .upload(fileName, file);
+
+        final publicUrl = supabase.storage
+            .from('chat-attachments')
+            .getPublicUrl(fileName);
+
+        final fileSize = await file.length();
+        final sizeStr = _formatFileSize(fileSize);
+
+        attachments.add({
+          'url': publicUrl,
+          'type': mimeType,
+          'name': originalName,
+          'size': sizeStr,
+        });
+      } catch (e) {
+        print('Ошибка загрузки файла "$originalName": $e');
+        throw Exception('Ошибка загрузки: $e');
+      }
+    }
+    return attachments;
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      // Опционально: обрезать с image_cropper
+      final croppedFile = await ImageCropper().cropImage(
+        sourcePath: pickedFile.path,
+      );
+      final file = File(croppedFile?.path ?? pickedFile.path);
+      setState(() {
+        _selectedFiles.add(file);
+      });
+    }
+  }
+
+  Future<void> _pickFiles() async {
+    final result = await FilePicker.platform.pickFiles(allowMultiple: true);
+    if (result != null) {
+      final files = result.files.map((e) => File(e.path!)).toList();
+      setState(() {
+        _selectedFiles.addAll(files);
+      });
+    }
+  }
+
+  Future<void> _sendMessageWithAttachments(List<File> files) async {
+    final text = _textController.text.trim();
+    if (files.isEmpty && text.isEmpty) return;
+
+    // 1. Делаем копию списка (чтобы итерация в _uploadAttachments была безопасной)
+    final List<File> filesToSend = List<File>.from(files);
+
+    // 2. Сразу убираем превью из интерфейса (пользователь видит, что отправка началась)
+    setState(() => _selectedFiles.clear());
+
+    try {
+      List<Map<String, String>> attachments = [];
+      if (filesToSend.isNotEmpty) {
+        attachments = await _uploadAttachments(filesToSend);
+      }
+      final message = Message(
+        id: Uuid().v4(),
+        groupId: widget.groupId,
+        senderId: _currentUserId!,
+        content: text,
+        attachments: attachments.isNotEmpty ? attachments : null,
+        sentAt: DateTime.now(),
+        senderName: _currentUserName,
+      );
+
+      // Сохраняем локально и отправляем в Supabase (как в _sendMessage)
+      await _db.createMessage(message);
+      await supabase.from('messages').insert(message.toMap());
+
+      _textController.clear();
+      _scrollToBottom();
+    } catch (e) {
+      setState(() => _selectedFiles.addAll(filesToSend));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+    }
   }
 
   Future<void> _loadGroupMembers() async {
@@ -102,7 +231,7 @@ class _GroupChatScreenState extends State<GroupChatScreen>
         final name = m['sender_name'] as String? ?? 'Пользователь';
         _userNames[senderId] = name;
 
-        if (senderId != null && name != null) {
+        if (senderId.isNotEmpty && name.isNotEmpty) {
           final cached = _userCache[senderId];
           if (cached == null || cached.name != name) {
             _userCache[senderId] = User(
@@ -115,14 +244,36 @@ class _GroupChatScreenState extends State<GroupChatScreen>
           }
         }
 
+        List<Map<String, String>>? attachments;
+        if (m['attachments'] != null) {
+          try {
+            final raw = m['attachments'];
+            if (raw is String) {
+              attachments = List<Map<String, String>>.from(
+                jsonDecode(raw).map((e) => Map<String, String>.from(e as Map)),
+              );
+            } else if (raw is List) {
+              attachments = List<Map<String, String>>.from(
+                raw.map((e) => Map<String, String>.from(e as Map)),
+              );
+            }
+          } catch (e) {
+            print('Ошибка парсинга attachments в синхронизации: $e');
+            attachments = null;
+          }
+        }
+
         final message = Message(
           id: id,
           groupId: m['group_id'],
-          senderId: m['sender_id'],
-          content: m['content'],
+          senderId: senderId,
+          content: m['content'] ?? '',
+          attachments: attachments,
+          replyToId: m['reply_to_id'] as String?,
           sentAt: DateTime.parse(m['sent_at']),
           senderName: name,
           isEdited: m['is_edited'] == 1,
+          lastSyncAt: DateTime.now(),
         );
 
         // Сохраняем в локальную БД
@@ -194,26 +345,38 @@ class _GroupChatScreenState extends State<GroupChatScreen>
                 continue;
               }
 
-              Map<String, dynamic>? data;
               // INSERT (или initial)
-              // Проверяем: если есть 'new' → это нормальный INSERT/UPDATE
-              if (change.containsKey('new')) {
-                data = change['new'] as Map<String, dynamic>;
-              }
-              // Иначе: возможно, это "initial data" — сам объект
-              else if (change.containsKey('id') &&
-                  change.containsKey('content')) {
-                data = change; // ← используем напрямую
-              } else {
-                print('🔴 Непонятный формат: $change');
-                continue;
-              }
+              final Map<String, dynamic> data = change.containsKey('new')
+                  ? change['new'] as Map<String, dynamic>
+                  : change;
 
               final id = data['id'] as String?;
               if (id == null) continue;
 
+              // Безопасный парсинг attachments
+              List<Map<String, String>>? attachments;
+              if (data['attachments'] != null) {
+                try {
+                  final raw = data['attachments'];
+                  if (raw is String) {
+                    attachments = List<Map<String, String>>.from(
+                      jsonDecode(
+                        raw,
+                      ).map((e) => Map<String, String>.from(e as Map)),
+                    );
+                  } else if (raw is List) {
+                    attachments = List<Map<String, String>>.from(
+                      raw.map((e) => Map<String, String>.from(e as Map)),
+                    );
+                  }
+                } catch (e) {
+                  print('Ошибка парсинга attachments в Realtime: $e');
+                  attachments = null;
+                }
+              }
+
               final String senderId = data['sender_id'] as String? ?? 'unknown';
-              final String content = data['content'] as String;
+              final String content = data['content'] as String? ?? '';
               final String sentAtStr = data['sent_at'] as String;
 
               late DateTime sentAt;
@@ -260,6 +423,8 @@ class _GroupChatScreenState extends State<GroupChatScreen>
                 groupId: widget.groupId,
                 senderId: senderId,
                 content: content,
+                attachments: attachments,
+                replyToId: data['reply_to_id'] as String?,
                 sentAt: sentAt,
                 senderName: senderName,
                 isEdited: data['is_edited'] == true,
@@ -285,6 +450,7 @@ class _GroupChatScreenState extends State<GroupChatScreen>
           },
           onError: (error) {
             print('Stream error: $error');
+            _subscription?.cancel();
           },
         );
   }
@@ -343,7 +509,7 @@ class _GroupChatScreenState extends State<GroupChatScreen>
       final remoteResponse = await Supabase.instance.client
           .from('messages')
           .select(
-            'id, group_id, sender_id, content, sent_at, sender_name, is_edited',
+            'id, group_id, sender_id, content, attachments, reply_to_id, sent_at, sender_name, is_edited',
           )
           .eq('group_id', widget.groupId)
           .order('sent_at', ascending: true);
@@ -361,11 +527,33 @@ class _GroupChatScreenState extends State<GroupChatScreen>
         String? name = m['sender_name'] as String? ?? 'Пользователь';
         _userNames[m['sender_id']] = name;
 
+        // Безопасный парсинг attachments (работает и со String, и с List)
+        List<Map<String, String>>? attachments;
+        if (m['attachments'] != null) {
+          try {
+            final raw = m['attachments'];
+            if (raw is String) {
+              attachments = List<Map<String, String>>.from(
+                jsonDecode(raw).map((e) => Map<String, String>.from(e as Map)),
+              );
+            } else if (raw is List) {
+              attachments = List<Map<String, String>>.from(
+                raw.map((e) => Map<String, String>.from(e as Map)),
+              );
+            }
+          } catch (e) {
+            print('Ошибка парсинга attachments при загрузке: $e');
+            attachments = null;
+          }
+        }
+
         final message = Message(
           id: id,
           groupId: m['group_id'],
           senderId: m['sender_id'],
-          content: m['content'],
+          content: m['content'] ?? '',
+          attachments: attachments,
+          replyToId: m['reply_to_id'] as String?,
           sentAt: DateTime.parse(m['sent_at']),
           senderName: name,
           isEdited: m['is_edited'] == 1,
@@ -378,23 +566,30 @@ class _GroupChatScreenState extends State<GroupChatScreen>
         }
       }
 
-      setState(() {
-        _messageMap.clear();
-        _messageMap.addAll(allMessagesMap);
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _messageMap.clear();
+          _messageMap.addAll(allMessagesMap);
+          _isLoading = false;
+        });
+      }
 
       Future.delayed(const Duration(milliseconds: 300), _scrollToBottom);
     } catch (e, s) {
       print('Ошибка загрузки сообщений: $e\n$s');
 
-      setState(() async {
-        _messageMap.clear();
-        for (final m in await _db.readMessagesForGroup(widget.groupId)) {
-          _messageMap[m.id] = m;
-        }
-        _isLoading = false;
-      });
+      // Безопасный fallback — без async внутри setState
+      final fallbackMessages = await _db.readMessagesForGroup(widget.groupId);
+
+      if (mounted) {
+        setState(() {
+          _messageMap.clear();
+          for (final m in fallbackMessages) {
+            _messageMap[m.id] = m;
+          }
+          _isLoading = false;
+        });
+      }
 
       ScaffoldMessenger.of(
         context,
@@ -414,7 +609,9 @@ class _GroupChatScreenState extends State<GroupChatScreen>
 
   Future<void> _sendMessage() async {
     final content = _textController.text.trim();
-    if (content.isEmpty || _currentUserId == null) return;
+    if (content.isEmpty && _selectedFiles.isEmpty) return;
+
+    final replyToId = _replyingTo?.id;
 
     if (_isEditing && _selectedMessage != null) {
       // Режим редактирования
@@ -466,12 +663,19 @@ class _GroupChatScreenState extends State<GroupChatScreen>
         ).showSnackBar(SnackBar(content: Text('Не удалось изменить')));
       }
     } else {
+      List<Map<String, String>> attachments = [];
+      if (_selectedFiles.isNotEmpty) {
+        attachments = await _uploadAttachments(_selectedFiles);
+        setState(() => _selectedFiles.clear());
+      }
       // Обычная отправка
       final newMessage = Message(
         id: Uuid().v4(),
         groupId: widget.groupId,
         senderId: _currentUserId!,
         content: content,
+        attachments: attachments.isNotEmpty ? attachments : null,
+        replyToId: replyToId,
         sentAt: DateTime.now(),
         senderName: _currentUserName,
         isEdited: false,
@@ -479,15 +683,7 @@ class _GroupChatScreenState extends State<GroupChatScreen>
 
       try {
         // Сохраняем в Supabase
-        await Supabase.instance.client.from('messages').insert({
-          'id': newMessage.id,
-          'group_id': newMessage.groupId,
-          'sender_id': newMessage.senderId,
-          'content': newMessage.content,
-          'sent_at': newMessage.sentAt.toIso8601String(),
-          'sender_name': _currentUserName,
-          'is_edited': false,
-        });
+        await supabase.from('messages').insert(newMessage.toMap());
 
         // Сохраняем в локальную БД
         await _db.createMessage(newMessage);
@@ -495,6 +691,7 @@ class _GroupChatScreenState extends State<GroupChatScreen>
         // Добавляем в UI
         setState(() {
           _messageMap[newMessage.id] = newMessage;
+          _replyingTo = null;
         });
 
         _textController.clear();
@@ -506,6 +703,7 @@ class _GroupChatScreenState extends State<GroupChatScreen>
             print('🟡 Новое изменённое сообщение: ${newMessage.id}');
           }
           _messageMap[newMessage.id] = newMessage;
+          _replyingTo = null;
         });
         _textController.clear();
         _scrollToBottom();
@@ -613,6 +811,94 @@ class _GroupChatScreenState extends State<GroupChatScreen>
                     },
                   ),
           ),
+          if (_selectedFiles.isNotEmpty)
+            SizedBox(
+              height: 60,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _selectedFiles.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final file = _selectedFiles[index];
+                  final isImage = [
+                    'jpg',
+                    'jpeg',
+                    'png',
+                    'webp',
+                    'gif',
+                  ].contains(file.path.split('.').last.toLowerCase());
+                  return Stack(
+                    children: [
+                      isImage
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.file(
+                                file,
+                                width: 60,
+                                height: 60,
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                          : Container(
+                              width: 60,
+                              height: 60,
+                              color: Colors.grey[300],
+                              child: const Icon(Icons.insert_drive_file),
+                            ),
+                      Positioned(
+                        top: -8,
+                        right: -8,
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.close,
+                            size: 16,
+                            color: Colors.red,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _selectedFiles.removeAt(index);
+                            });
+                          },
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          // Блок "Ответ на сообщение"
+          if (_replyingTo != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              color: isDarkMode ? Colors.grey[900] : Colors.grey[100],
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Ответ на сообщение',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                        Text(
+                          _replyingTo!.content.isNotEmpty
+                              ? _replyingTo!.content
+                              : '📎 Вложение',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    onPressed: _cancelReply,
+                  ),
+                ],
+              ),
+            ),
           // Поле ввода
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -642,6 +928,59 @@ class _GroupChatScreenState extends State<GroupChatScreen>
                       size: 18,
                     ),
                   ),
+                const SizedBox(width: 8),
+                // Единая кнопка вложения с выпадающим меню
+                PopupMenuButton<String>(
+                  icon: Icon(
+                    Icons.attach_file,
+                    color: isDarkMode ? Colors.grey[400] : Colors.grey,
+                    size: 24,
+                  ),
+                  offset: const Offset(15, -48),
+                  onSelected: (value) {
+                    if (value == 'photo') {
+                      _pickImage();
+                    } else if (value == 'file') {
+                      _pickFiles();
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'photo',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.photo,
+                            size: 18,
+                            color: isDarkMode ? Colors.blue[300] : Colors.blue,
+                          ),
+                          const SizedBox(width: 8),
+                          Text('Фото'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'file',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.insert_drive_file,
+                            size: 18,
+                            color: isDarkMode
+                                ? Colors.green[300]
+                                : Colors.green,
+                          ),
+                          const SizedBox(width: 8),
+                          Text('Файл'),
+                        ],
+                      ),
+                    ),
+                  ],
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  color: isDarkMode ? Colors.grey[800] : Colors.white,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
@@ -675,7 +1014,16 @@ class _GroupChatScreenState extends State<GroupChatScreen>
                 ),
                 const SizedBox(width: 8),
                 FloatingActionButton(
-                  onPressed: _sendMessage,
+                  onPressed: () {
+                    if (_selectedFiles.isNotEmpty) {
+                      _sendMessageWithAttachments(_selectedFiles);
+                      setState(() {
+                        _selectedFiles.clear();
+                      });
+                    } else {
+                      _sendMessage();
+                    }
+                  },
                   backgroundColor: _isEditing ? Colors.green : myMessageBg,
                   mini: true,
                   child: Icon(
@@ -805,6 +1153,177 @@ class _GroupChatScreenState extends State<GroupChatScreen>
     );
   }
 
+  Widget _buildAttachments(
+    List<Map<String, String>> attachments,
+    bool isMe, {
+    bool isFileOnly = false,
+    required Color bubbleColor,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: attachments.map((file) {
+        final url = file['url'] ?? '';
+        final name = file['name'] ?? 'Файл';
+        final type = file['type'] ?? '';
+        final size = file['size'] ?? '';
+
+        // ИЗОБРАЖЕНИЕ
+        if (type.startsWith('image/')) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: CachedNetworkImage(
+                imageUrl: url,
+                width: 240,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  width: 240,
+                  height: 180,
+                  color: Colors.grey[300],
+                  child: const Center(child: CircularProgressIndicator()),
+                ),
+                errorWidget: (context, url, error) => const Icon(Icons.error),
+              ),
+            ),
+          );
+        }
+        // ФАЙЛ (PDF, doc и т.д.)
+        return Container(
+          margin: const EdgeInsets.only(bottom: 6),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: bubbleColor,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.description,
+                  color: Color(0xFF7e61f3),
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                        color: Colors.white,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (size.isNotEmpty)
+                      Text(
+                        size,
+                        style: TextStyle(fontSize: 13, color: Colors.white),
+                      ),
+                  ],
+                ),
+              ),
+              Column(
+                children: [
+                  IconButton(
+                    icon: const Icon(
+                      Icons.download_rounded,
+                      color: Colors.white,
+                    ),
+                    onPressed: () => _openFile(url),
+                  ),
+                  if (isFileOnly)
+                    Text(
+                      _formatTime(
+                        DateTime.now(),
+                      ), // или передавать sentAt, если нужно
+                      style: const TextStyle(fontSize: 11, color: Colors.white),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Future<void> _openFile(String url) async {
+    try {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        throw 'Не удалось открыть файл';
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+    }
+  }
+
+  Widget _buildReplyPreview(String replyToId, bool isMe, bool isDarkMode) {
+    // Находим оригинальное сообщение
+    final original = _messages.firstWhereOrNull((m) => m.id == replyToId);
+    if (original == null) return const SizedBox();
+
+    final previewText = original.content.isNotEmpty
+        ? original.content
+        : (original.attachments?.isNotEmpty == true ? '📎 Файл' : '');
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: isMe
+            ? Colors.white.withOpacity(0.15)
+            : Colors.grey.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(10),
+        border: Border(
+          left: BorderSide(
+            color: isMe ? Colors.white70 : Colors.grey,
+            width: 3,
+          ),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            original.senderName ?? 'Пользователь',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: isMe ? Colors.white70 : Colors.black54,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            previewText,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 14,
+              color: isMe ? Colors.white : Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMessageBubble(
     Message message,
     bool isMe,
@@ -818,16 +1337,80 @@ class _GroupChatScreenState extends State<GroupChatScreen>
     required bool isEnd,
   }) {
     final contentKey = _messageContentKeys[message.id] ??= GlobalKey();
-    final bool showAvatar = !isMe; // Только у чужих
+    final bool showAvatar = !isMe;
+    final bool hasText = message.content.trim().isNotEmpty;
+    final bool hasAttachments =
+        message.attachments != null && message.attachments!.isNotEmpty;
+
+    // Определяем, является ли сообщение ТОЛЬКО файлом (без текста)
+    final bool isFileOnly =
+        hasAttachments &&
+        !hasText &&
+        message.attachments!.every(
+          (a) => !(a['type']?.startsWith('image/') ?? false),
+        );
 
     final User? senderUser = _userCache[message.senderId];
     final String senderName =
         senderUser?.name ?? message.senderName ?? 'Пользователь';
 
+    // Если это только файл — рисуем без пузыря
+    if (isFileOnly) {
+      return GestureDetector(
+        onLongPress: () =>
+            _showMessageMenu(context, message, contentKey, isDarkMode),
+        child: Padding(
+          padding: EdgeInsets.only(
+            top: 4,
+            bottom: 4,
+            left: isMe ? 60 : 12,
+            right: isMe ? 12 : 60,
+          ),
+          child: Align(
+            alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+            child: Column(
+              crossAxisAlignment: isMe
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
+              children: [
+                if (!isMe && isStart)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 12, bottom: 4),
+                    child: Text(
+                      senderName,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: isDarkMode ? Colors.white70 : Colors.black54,
+                      ),
+                    ),
+                  ),
+                _buildAttachments(
+                  message.attachments!,
+                  isMe,
+                  isFileOnly: true,
+                  bubbleColor: isMe ? myMessageBg : otherMessageBg,
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 8, top: 2),
+                  child: Text(
+                    _formatTime(message.sentAt),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDarkMode ? Colors.white54 : Colors.black54,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return GestureDetector(
-      onLongPress: () {
-        _showMessageMenu(context, message, contentKey, isDarkMode);
-      },
+      onLongPress: () =>
+          _showMessageMenu(context, message, contentKey, isDarkMode),
       child: Padding(
         padding: EdgeInsets.only(
           top: 4,
@@ -841,26 +1424,20 @@ class _GroupChatScreenState extends State<GroupChatScreen>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // Аватарка (слева от чужих сообщений)
               if (showAvatar && isEnd && senderUser != null)
                 Container(
                   margin: const EdgeInsets.only(right: 8),
-                  child: UserAvatar(
-                    user: senderUser,
-                    radius: 16, // маленькая аватарка
-                  ),
+                  child: UserAvatar(user: senderUser, radius: 16),
                 ),
 
-              // Пустое место вместо аватарки, чтобы следующие сообщения были на уровне первого
-              if (showAvatar && !isEnd)
-                const SizedBox(width: 40), // avatar radius + margin
-              // Само сообщение
+              if (showAvatar && !isEnd) const SizedBox(width: 40),
+
               ConstrainedBox(
                 constraints: BoxConstraints(
                   maxWidth: MediaQuery.of(context).size.width * 0.75,
                 ),
                 child: IntrinsicWidth(
-                  stepWidth: 10.0,
+                  stepWidth: 10,
                   child: Container(
                     decoration: BoxDecoration(
                       color: isMe ? myMessageBg : otherMessageBg,
@@ -880,50 +1457,77 @@ class _GroupChatScreenState extends State<GroupChatScreen>
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Имя (только у чужих)
+                        // Имя отправителя (только у чужих сообщений)
                         if (!isMe && isStart)
                           Padding(
-                            padding: const EdgeInsets.only(
-                              left: 12,
-                              top: 8,
-                              right: 12,
+                            padding: EdgeInsets.only(
+                              left: 14,
+                              top: 10,
+                              right: 14,
                             ),
                             child: Text(
                               senderName,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
-                                color: isMe
-                                    ? Colors.white70
-                                    : (isDarkMode
-                                          ? Colors.white
-                                          : Colors.black),
+                                color: isDarkMode ? Colors.white : Colors.black,
                               ),
                             ),
                           ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
+
+                        // БЛОК ОТВЕТА
+                        if (message.replyToId != null)
+                          _buildReplyPreview(
+                            message.replyToId!,
+                            isMe,
+                            isDarkMode,
                           ),
-                          child: Text(
-                            message.content,
-                            style: TextStyle(
-                              color: isMe ? Colors.white : otherMessageText,
-                              fontSize: 16,
+
+                        // Текст сообщения
+                        if (hasText)
+                          Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              14,
+                              6,
+                              14,
+                              hasAttachments ? 4 : 4,
                             ),
-                            softWrap: true,
-                            overflow: TextOverflow.visible,
+                            child: Text(
+                              message.content,
+                              style: TextStyle(
+                                color: isMe ? Colors.white : otherMessageText,
+                                fontSize: 16,
+                              ),
+                              softWrap: true,
+                            ),
                           ),
-                        ),
+
+                        // Вложения (картинки / файлы)
+                        if (hasAttachments)
+                          Padding(
+                            padding: EdgeInsets.only(
+                              left: 6,
+                              top: hasText ? 4 : 6,
+                              right: 4,
+                              bottom: 4,
+                            ),
+                            child: _buildAttachments(
+                              message.attachments!,
+                              isMe,
+                              isFileOnly: false,
+                              bubbleColor: isMe ? myMessageBg : otherMessageBg,
+                            ),
+                          ),
+
+                        // Время + "изменено"
                         Padding(
-                          padding: const EdgeInsets.only(
+                          padding: EdgeInsets.only(
                             left: 12,
                             right: 12,
                             bottom: 8,
                           ),
                           child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            mainAxisAlignment: MainAxisAlignment.end,
                             children: [
                               if (message.isEdited)
                                 Text(
@@ -931,19 +1535,17 @@ class _GroupChatScreenState extends State<GroupChatScreen>
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: isMe
-                                        ? timeTextColorMy
-                                        : timeTextColorOther,
+                                        ? timeTextColorMy.withOpacity(0.85)
+                                        : timeTextColorOther.withOpacity(0.7),
                                   ),
-                                )
-                              else
-                                const SizedBox(),
+                                ),
                               Text(
                                 _formatTime(message.sentAt),
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: isMe
-                                      ? timeTextColorMy
-                                      : timeTextColorOther,
+                                      ? timeTextColorMy.withOpacity(0.85)
+                                      : timeTextColorOther.withOpacity(0.7),
                                 ),
                               ),
                             ],
@@ -1018,18 +1620,21 @@ class _GroupChatScreenState extends State<GroupChatScreen>
     final bool isSender = message.senderId == _currentUserId;
     final bool canBeEdited =
         isSender && DateTime.now().difference(message.sentAt).inHours < 24;
-    
+
     // Проверяем, может ли текущий пользователь удалять сообщения
-    final bool canDeleteAnyMessage = _currentUserId != null &&
-        (_members.firstWhere(
-          (m) => m.userId == _currentUserId,
-          orElse: () => GroupMember(
-            groupId: '',
-            userId: '',
-            joinedAt: DateTime.now(),
-            updatedAt: DateTime.now(),
-          ),
-        ).canDeleteMessages());
+    final bool canDeleteAnyMessage =
+        _currentUserId != null &&
+        (_members
+            .firstWhere(
+              (m) => m.userId == _currentUserId,
+              orElse: () => GroupMember(
+                groupId: '',
+                userId: '',
+                joinedAt: DateTime.now(),
+                updatedAt: DateTime.now(),
+              ),
+            )
+            .canDeleteMessages());
 
     final bool canBeDeleted = isSender || canDeleteAnyMessage;
 
@@ -1189,6 +1794,25 @@ class _GroupChatScreenState extends State<GroupChatScreen>
                                 _copyMessage(message.content);
                               },
                             ),
+                            ListTile(
+                              leading: Icon(
+                                Icons.reply,
+                                size: 18,
+                                color: isDarkMode
+                                    ? Colors.blue[300]
+                                    : Colors.blue,
+                              ),
+                              title: const Text(
+                                "Ответить",
+                                style: TextStyle(fontSize: 14),
+                              ),
+                              onTap: () {
+                                _hideMessageMenu();
+                                setState(() => _replyingTo = message);
+                                _textController
+                                    .clear(); // чтобы не было старого текста
+                              },
+                            ),
                             if (canBeDeleted)
                               ListTile(
                                 leading: Icon(
@@ -1313,9 +1937,9 @@ class _GroupChatScreenState extends State<GroupChatScreen>
 
       if (response == 0) {
         // Сообщение не найдено
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Сообщение уже удалено')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Сообщение уже удалено')));
         return;
       }
 

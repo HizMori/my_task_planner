@@ -28,13 +28,14 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   DateTime? _deadline;
-  String _priority = 'medium';
+  String _priority = 'low';
   String _category = 'работа';
   String? _groupId; // null — значит личная задача
   late String _creatorId; // реальный ID
   List<String> _selectedUserIds = []; // ID назначенных
   List<User> _selectedUsers = []; // Назначенные пользователи
-  late GroupMember? _currentGroupMember;
+  GroupMember? _currentGroupMember = null;
+  String _urgency = 'not_urgent';
 
   final DatabaseService _databaseService = DatabaseService.instance;
 
@@ -52,23 +53,45 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   bool _isPriorityMenuOpen = false;
   bool _isCategoryMenuOpen = false;
   bool _isGroupMenuOpen = false;
+  final _urgencyKey = GlobalKey();
+  bool _isUrgencyActive = false;
+  bool _isUrgencyMenuOpen = false;
 
   @override
   void initState() {
     super.initState();
     print('CreateTaskScreen: widget.task = $widget.task');
-    _loadUserId().then((_) {
-      // Только после того, как _creatorId загружен — грузим группы и задачу
-      _loadGroups().then((_) {
-        _determineViewMode();
-        if (widget.task != null) {
-          _loadTaskData();
-        }
-      });
+    _loadUserId().then((_) async {
+      await _loadGroups(); // Делаем await, чтобы дождаться завершения
+      await _loadCurrentGroupMember(); // ← Новый метод: загружаем участника группы задачи
+      _determineViewMode(); // Теперь можно безопасно использовать _currentGroupMember
+      if (widget.task != null) {
+        _loadTaskData();
+      }
     });
   }
 
   _TaskViewMode _viewMode = _TaskViewMode.create;
+
+  Future<void> _loadCurrentGroupMember() async {
+    if (widget.task?.groupId != null && _creatorId != null) {
+      try {
+        final member = await _databaseService.readGroupMember(widget.task!.groupId!, _creatorId);
+        setState(() {
+          _currentGroupMember = member;
+        });
+      } catch (e) {
+        print('Ошибка загрузки участника группы: $e');
+        setState(() {
+          _currentGroupMember = null;
+        });
+      }
+    } else {
+      setState(() {
+        _currentGroupMember = null;
+      });
+    }
+  }
 
   void _determineViewMode() {
     if (widget.task == null) {
@@ -109,7 +132,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
         _titleController.text = task.title;
         _descriptionController.text = task.description ?? '';
         _deadline = task.deadline;
-        _priority = task.priority ?? 'medium';
+        _priority = task.priority ?? 'low';
         _category = task.category ?? 'работа';
         _groupId = task.groupId;
         _creatorId = task.creatorId;
@@ -452,9 +475,10 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   // Универсальная функция для отображения текста
   String _getDisplayText(String value) {
     return switch (value) {
-      'low' => 'Низкий',
-      'medium' => 'Средний',
-      'high' => 'Высокий',
+      'low' => 'Не важно',
+      'high' => 'Важно',
+      'urgent' => 'Срочно',
+      'not_urgent' => 'Не срочно',
       'работа' => 'Работа',
       'личное' => 'Личное',
       'учёба' => 'Учёба',
@@ -685,13 +709,29 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
             _buildDropdownField(
               label: 'Приоритет',
               labelStyle: theme.textTheme.bodyMedium,
-              displayText: _getDisplayText(task.priority ?? 'medium'),
+              displayText: _getDisplayText(task.priority ?? 'low'),
               key: _priorityKey,
               isActive: false,
               onTap: () {}, // пустой, чтобы не реагировал
               theme: theme,
             ),
 
+            const SizedBox(height: 16),
+
+            // Срочность
+            Text('Срочность', style: theme.textTheme.bodySmall),
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey, width: 1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                _getDisplayText(task.urgency ?? 'not_urgent'),
+                style: theme.textTheme.bodyMedium,
+              ),
+            ),
             const SizedBox(height: 16),
 
             // Категория
@@ -892,12 +932,49 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                   _showDropdownMenu(
                     context: context,
                     key: _priorityKey,
-                    items: ['low', 'medium', 'high'],
+                    items: ['low', 'high'],
                     selectedValue: _priority,
                     onChanged: (value) => setState(() => _priority = value),
                     onClose: () => setState(() {
                       _isPriorityActive = false;
                       _isPriorityMenuOpen = false;
+                    }),
+                  );
+                },
+                theme: theme,
+              ),
+
+              const SizedBox(height: 16),
+
+              // Срочность
+              _buildDropdownField(
+                label: 'Срочность',
+                displayText: _getDisplayText(_urgency),
+                key: _urgencyKey,
+                isActive: _isUrgencyActive,
+                onTap: () {
+                  if (_isUrgencyMenuOpen) {
+                    setState(() {
+                      _isUrgencyActive = false;
+                      _isUrgencyMenuOpen = false;
+                    });
+                    return;
+                  }
+
+                  setState(() {
+                    _isUrgencyActive = true;
+                    _isUrgencyMenuOpen = true;
+                  });
+
+                  _showDropdownMenu(
+                    context: context,
+                    key: _urgencyKey,
+                    items: ['urgent', 'not_urgent'],
+                    selectedValue: _urgency,
+                    onChanged: (value) => setState(() => _urgency = value),
+                    onClose: () => setState(() {
+                      _isUrgencyActive = false;
+                      _isUrgencyMenuOpen = false;
                     }),
                   );
                 },
@@ -1119,8 +1196,17 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                 onPressed: _viewMode == _TaskViewMode.view ? null : () async {
                   if (_formKey.currentState!.validate()) {
                     _formKey.currentState!.save();
+
                     final now = DateTime.now();
                     final isEditing = widget.task != null;
+
+                    print('💾 Сохранение задачи: ${isEditing ? 'Обновление' : 'Создание'}');
+                    print('📝 Название: ${_titleController.text.trim()}');
+                    print('📅 Дедлайн: $_deadline');
+                    print('⚡ Приоритет: $_priority, Срочность: $_urgency');
+                    print('🗂 Категория: $_category');
+                    print('👥 Группа: $_groupId, Назначено: ${_selectedUserIds.length} человек');
+
                     final task = isEditing
                         ? widget.task!.copyWith(
                             title: _titleController.text.trim(),
@@ -1128,6 +1214,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                             deadline: _deadline,
                             priority: _priority,
                             category: _category,
+                            urgency: _urgency,
                             groupId: _groupId,
                             updatedAt: now,
                           )
@@ -1138,6 +1225,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                             deadline: _deadline,
                             priority: _priority,
                             category: _category,
+                            urgency: _urgency,
                             groupId: _groupId,
                             creatorId: _creatorId,
                             createdAt: now,
@@ -1145,48 +1233,66 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                             last_sync_at: null,
                           );
 
-                    // Сохраняем в локальную БД
-                    if (isEditing) {
-                      await _databaseService.updateTask(task);
-                    } else {
-                      await _databaseService.createTask(task);
-                    }
+                    try {
+                      if (isEditing) {
+                        print('🔄 Обновляем задачу в базе: ${task.id}');
+                        await _databaseService.updateTask(task);
+                      } else {
+                        print('🆕 Создаём новую задачу: ${task.id}');
+                        await _databaseService.createTask(task);
+                      }
 
-                    // Удаляем старые назначения
-                    await _databaseService.deleteAllAssigneesByTaskId(task.id);
+                      // Удаление старых назначений
+                      print('🗑 Удаляем старые назначения для задачи: ${task.id}');
+                      await _databaseService.deleteAllAssigneesByTaskId(task.id);
 
-                    // Добавляем новые
-                    for (final userId in _selectedUserIds) {
-                      final assignee = TaskAssignee(
-                        taskId: task.id!,
-                        userId: userId,
-                        assignedAt: now,
-                        updatedAt: now,
-                        lastSyncAt: null,
-                      );
-                      await _databaseService.createTaskAssignee(assignee);
-                    }
+                      // Добавление новых
+                      for (final userId in _selectedUserIds) {
+                        final assignee = TaskAssignee(
+                          taskId: task.id!,
+                          userId: userId,
+                          assignedAt: now,
+                          updatedAt: now,
+                          lastSyncAt: null,
+                        );
+                        print('✅ Назначаем пользователя: $userId к задаче ${task.id}');
+                        await _databaseService.createTaskAssignee(assignee);
+                      }
 
-                    // Синхронизация
-                    await _databaseService.syncTasksToSupabase();
-                    await _databaseService.syncTaskAssigneesToSupabase();
-                    // Сброс формы только при создании
-                    if (!isEditing) {
-                      setState(() {
-                        _titleController.text = '';
-                        _descriptionController.text = '';
-                        _deadline = null;
-                        _priority = 'medium';
-                        _category = 'other';
-                        _groupId = null;
-                        _selectedUserIds.clear();
-                        _selectedUsers.clear();
-                        _formKey.currentState?.reset();
-                      });
-                    }
+                      // Синхронизация
+                      print('🔁 Синхронизируем задачи и назначения с Supabase...');
+                      await _databaseService.syncTasksToSupabase();
+                      await _databaseService.syncTaskAssigneesToSupabase();
 
-                    if (context.mounted) {
-                      Navigator.pop(context, true);
+                      print('✅ Задача успешно сохранена и синхронизирована: ${task.id}');
+
+                      // Сброс формы только при создании
+                      if (!isEditing) {
+                        setState(() {
+                          _titleController.text = '';
+                          _descriptionController.text = '';
+                          _deadline = null;
+                          _priority = 'low';
+                          _category = 'работа';
+                          _urgency = 'not_urgent';
+                          _groupId = null;
+                          _selectedUserIds.clear();
+                          _selectedUsers.clear();
+                          _formKey.currentState?.reset();
+                        });
+                      }
+
+                      if (context.mounted) {
+                        Navigator.pop(context, true);
+                      }
+                    } catch (e, stack) {
+                      print('❌ Ошибка при сохранении задачи: $e');
+                      print('📌 Стек ошибки: $stack');
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Ошибка при сохранении: $e')),
+                        );
+                      }
                     }
                   }
                 },

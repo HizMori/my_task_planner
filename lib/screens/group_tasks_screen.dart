@@ -296,6 +296,7 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
                                           children: [
                                             _buildLabel(_getPriorityText(task.priority), _getPriorityColor(task.priority)),
                                             _buildLabel(_getCategoryText(task.category), const Color(0xFF7e61f3)),
+                                            _buildLabel(_getUrgencyText(task.urgency), _getUrgencyColor(task.urgency))
                                           ],
                                         ),
                                         SizedBox(height: 4),
@@ -415,9 +416,8 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
 
   String _getPriorityText(String? priority) {
     return switch (priority) {
-      'low' => 'Низкий',
-      'medium' => 'Средний',
-      'high' => 'Высокий',
+      'low' => 'Не важно',
+      'high' => 'Важно',
       _ => 'Не указан',
     };
   }
@@ -425,7 +425,6 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
   Color _getPriorityColor(String? priority) {
     return switch (priority) {
       'low' => Colors.green,
-      'medium' => Colors.orange,
       'high' => Colors.red,
       _ => Colors.grey,
     };
@@ -438,6 +437,22 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
       'учёба' => 'Учёба',
       'другое' => 'Другое',
       _ => 'Без категории',
+    };
+  }
+
+  String _getUrgencyText(String? urgency) {
+    return switch (urgency) {
+      'urgent' => 'Срочно',
+      'not_urgent' => 'Не срочно',
+      _ => 'Не указано',
+    };
+  }
+
+  Color _getUrgencyColor(String? urgency) {
+    return switch (urgency) {
+      'urgent' => Colors.orange,
+      'not_urgent' => Colors.blueGrey,
+      _ => Colors.grey,
     };
   }
 }

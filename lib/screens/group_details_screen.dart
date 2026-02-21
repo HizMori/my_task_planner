@@ -8,6 +8,7 @@ import '../services/database_service.dart';
 import 'create_group_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/group_member.dart';
+import '../screens/eisenhower_screen.dart';
 
 class GroupDetailsScreen extends StatefulWidget {
   final Group group;
@@ -29,7 +30,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _group = widget.group;
     _loadCurrentUserId();
   }
@@ -318,6 +319,10 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen>
               icon: Icon(Icons.checklist),
               text: 'Задачи',
             ),
+            Tab(
+              icon: Icon(Icons.grid_view), 
+              text: 'Приоритеты'
+            ),
           ],
           indicatorColor: const Color(0xFF7e61f3),
           labelColor: const Color(0xFF7e61f3),
@@ -336,6 +341,8 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen>
           GroupChatScreen(groupId: _group.id),
           // Вкладка: Задачи
           GroupTasksScreen(group: _group),
+          // Вкладка: Приоритеты
+          EisenhowerScreen(groupId: _group.id, hideAppBar: true),
         ],
       ),
     );

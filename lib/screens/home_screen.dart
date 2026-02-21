@@ -388,7 +388,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Color _getPriorityColor(String? priority) {
     return switch (priority) {
       'high' => Colors.red,
-      'medium' => Colors.orange,
       'low' => Colors.green,
       _ => Colors.grey,
     };
@@ -397,7 +396,6 @@ class _HomeScreenState extends State<HomeScreen> {
   String _getPriorityInitial(String? priority) {
     return switch (priority) {
       'high' => 'В',
-      'medium' => 'С',
       'low' => 'Н',
       _ => '?',
     };

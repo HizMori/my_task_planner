@@ -7,6 +7,7 @@ import '../services/database_service.dart'; // Локальная БД
 import '../services/auth_service.dart'; // Auth сервис
 import '../themes/app_theme.dart';
 import '../screens/forgot_password_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -143,6 +144,7 @@ class _SignInScreenState extends State<SignInScreen> {
           .eq('id', authResponse.user!.id)
           .single();
       await AuthService.instance.saveCurrentUserId(userResponse['id']);
+      await AuthService.instance.setFirstLaunchCompleted();
 
       // Переход
       Navigator.pushReplacement(

@@ -53,6 +53,11 @@ class AuthService {
     return session != null;
   }
 
+  Future<void> setFirstLaunchCompleted() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isFirstLaunch', false);
+  }
+
   Future<bool> syncCurrentUser() async {
     final supabase = Supabase.instance.client;
     try {
@@ -102,8 +107,8 @@ class AuthService {
       await DatabaseService.instance.syncTaskAssigneesFromSupabase();
 
       return true; // Успешно
-    } catch (e) {
-      print('Ошибка синхронизации пользователя: $e');
+    } catch (e, stackTrace) {
+      print('Ошибка синхронизации пользователя: $e\n$stackTrace');
       return false;
     }
   }

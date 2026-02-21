@@ -388,17 +388,9 @@ class DatabaseService {
 
       for (var message in messagesToSync) {
         try {
-          final data = {
-            'id': message.id,
-            'group_id': message.groupId,
-            'sender_id': message.senderId,
-            'content': message.content,
-            'sent_at': message.sentAt.toIso8601String(),
-            'sender_name': message.senderName ?? 'Пользователь',
-            'is_edited': message.isEdited ? 1 : 0,
-          };
-
-          await supabase.from('messages').insert(data);
+          final data = message.toMap();
+          data['sent_at'] = message.sentAt.toIso8601String();
+          await supabase.from('messages').upsert(data);
 
           // ✅ Отметить как отправленное
           await db.update(
@@ -408,7 +400,7 @@ class DatabaseService {
             whereArgs: [message.id],
           );
         } catch (e) {
-          print('Не удалось отправить сообщение ${message.id}: $e');
+          print('Не удалось синхронизировать сообщение ${message.id}: $e');
           // Оставляем last_sync_at = null → повторим позже
         }
       }
@@ -429,6 +421,7 @@ class DatabaseService {
         priority TEXT NOT NULL,
         category TEXT NOT NULL,
         is_completed INTEGER NOT NULL DEFAULT 0,
+        urgency TEXT DEFAULT 'not_urgent',
         group_id TEXT,
         creator_id TEXT,
         created_at TEXT,
@@ -506,7 +499,9 @@ class DatabaseService {
         id TEXT PRIMARY KEY,
         group_id TEXT,
         sender_id TEXT,
-        content TEXT NOT NULL,
+        content TEXT,
+        attachments TEXT,
+        reply_to_id TEXT,
         sent_at TEXT,
         sender_name TEXT,
         is_edited INTEGER DEFAULT 0,
@@ -1014,7 +1009,7 @@ class DatabaseService {
   // CRUD для настроек
   Future<AppSettings> createAppSettings(AppSettings settings) async {
     final db = await database;
-    await db.insert('app_settings', settings.toMap());
+    await db.insert('app_settings', settings.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
     return settings;
   }
 
